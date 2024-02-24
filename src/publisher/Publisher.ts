@@ -17,8 +17,8 @@ export interface MarkedForPublishing {
 	images: string[];
 }
 
-export const IMAGE_PATH_BASE = "src/site/img/user/";
-export const NOTE_PATH_BASE = "src/site/notes/";
+export const IMAGE_PATH_BASE = "/img/user/";
+export const NOTE_PATH_BASE = "/";
 
 /**
  * Prepares files to be published and publishes them to Github
@@ -174,7 +174,7 @@ export default class Publisher {
 	}
 
 	async uploadImage(filePath: string, content: string, sha?: string) {
-		const path = `src/site${filePath}`;
+		const path = `${filePath}`;
 		await this.uploadToGithub(path, content, sha);
 	}
 
