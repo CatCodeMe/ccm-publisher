@@ -361,7 +361,7 @@ export class GardenPageCompiler {
 
 							sectionID = `#${slugify(refBlock, {
 								preserveLeadingUnderscore: true,
-								preserveCharacters: ["-", "#"],
+								preserveCharacters: ["_", "#"],
 							})}`;
 
 							const blockInFile =
@@ -386,20 +386,20 @@ export class GardenPageCompiler {
 							// Obsidian's autocomplete for transclusion omits such charcters which leads to full page transclusion instead of just the heading
 							const headerSlug = slugify(refHeader, {
 								preserveLeadingUnderscore: true,
-								preserveCharacters: ["-", "#"],
+								preserveCharacters: ["_", "#"],
 							});
 
 							const headerInFile = metadata?.headings?.find(
 								(header) =>
 									slugify(header.heading, {
 										preserveLeadingUnderscore: true,
-										preserveCharacters: ["-", "#"],
+										preserveCharacters: ["_", "#"],
 									}) === headerSlug,
 							);
 
 							sectionID = `#${slugify(refHeader, {
 								preserveLeadingUnderscore: true,
-								preserveCharacters: ["-", "#"],
+								preserveCharacters: ["_", "#"],
 							})}`;
 
 							if (headerInFile && metadata?.headings) {

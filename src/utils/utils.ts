@@ -43,7 +43,7 @@ function generateUrlPath(filePath: string, slugifyPath = true): string {
 			.map((x) =>
 				slugify(x, {
 					preserveLeadingUnderscore: true,
-					preserveCharacters: ["-", "#"],
+					preserveCharacters: ["_", "#"],
 				}),
 			)
 			.join("/") + "/"
