@@ -99,35 +99,35 @@ export default class SettingView {
 			.createEl("h3", { text: "URL" })
 			.prepend(this.getIcon("link"));
 		this.initializeGitHubBaseURLSetting();
-		this.initializeSlugifySetting();
+		// this.initializeSlugifySetting();
 
-		this.settingsRootElement
-			.createEl("h3", { text: "Features" })
-			.prepend(this.getIcon("star"));
-		this.initializeDefaultNoteSettings();
+		// this.settingsRootElement
+		// 	.createEl("h3", { text: "Features" })
+		// 	.prepend(this.getIcon("star"));
+		// this.initializeDefaultNoteSettings();
 
-		this.settingsRootElement
-			.createEl("h3", { text: "Appearance" })
-			.prepend(this.getIcon("brush"));
-		this.initializeThemesSettings();
+		// this.settingsRootElement
+		// 	.createEl("h3", { text: "Appearance" })
+		// 	.prepend(this.getIcon("brush"));
+		// this.initializeThemesSettings();
+		//
+		// this.settingsRootElement
+		// 	.createEl("h3", { text: "Advanced" })
+		// 	.prepend(this.getIcon("cog"));
 
-		this.settingsRootElement
-			.createEl("h3", { text: "Advanced" })
-			.prepend(this.getIcon("cog"));
-
-		new Setting(this.settingsRootElement)
-			.setName("Path Rewrite Rules")
-			.setDesc(
-				"Define rules to rewrite note folder structure in the garden. See the modal for more information.",
-			)
-			.addButton((cb) => {
-				cb.setButtonText("Manage Rewrite Rules");
-
-				cb.onClick(() => {
-					this.openPathRewriteRulesModal();
-				});
-			});
-		this.initializeCustomFilterSettings();
+		// new Setting(this.settingsRootElement)
+		// 	.setName("Path Rewrite Rules")
+		// 	.setDesc(
+		// 		"Define rules to rewrite note folder structure in the garden. See the modal for more information.",
+		// 	)
+		// 	.addButton((cb) => {
+		// 		cb.setButtonText("Manage Rewrite Rules");
+		//
+		// 		cb.onClick(() => {
+		// 			this.openPathRewriteRulesModal();
+		// 		});
+		// 	});
+		// this.initializeCustomFilterSettings();
 		prModal.titleEl.createEl("h1", "Site template settings");
 	}
 
@@ -1061,25 +1061,25 @@ export default class SettingView {
 					),
 			);
 
-		this.settingsRootElement
-			.createEl("h3", { text: "Support" })
-			.prepend(this.getIcon("heart"));
-
-		this.settingsRootElement
-			.createDiv({
-				attr: {
-					style: "display:flex; align-items:center; justify-content:center; margin-top: 20px;",
-				},
-			})
-			.createEl("a", {
-				attr: { href: "https://ko-fi.com/oleeskild", target: "_blank" },
-			})
-			.createEl("img", {
-				attr: {
-					src: "https://cdn.ko-fi.com/cdn/kofi3.png?v=3",
-					width: "200",
-				},
-			});
+		// this.settingsRootElement
+		// 	.createEl("h3", { text: "Support" })
+		// 	.prepend(this.getIcon("heart"));
+		//
+		// this.settingsRootElement
+		// 	.createDiv({
+		// 		attr: {
+		// 			style: "display:flex; align-items:center; justify-content:center; margin-top: 20px;",
+		// 		},
+		// 	})
+		// 	.createEl("a", {
+		// 		attr: { href: "https://ko-fi.com/oleeskild", target: "_blank" },
+		// 	})
+		// 	.createEl("img", {
+		// 		attr: {
+		// 			src: "https://cdn.ko-fi.com/cdn/kofi3.png?v=3",
+		// 			width: "200",
+		// 		},
+		// 	});
 	}
 
 	renderPullRequestHistory(modal: Modal, previousPrUrls: string[]) {

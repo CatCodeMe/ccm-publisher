@@ -29,8 +29,18 @@ export default class PublishStatusManager implements IPublishStatusManager {
 		const isMarkedForPublish = (key: string) =>
 			marked.find((f) => f === key);
 
+		const ignoreSettings = this.publisher.settings.ignoredDirOrFiles;
+
+		const ignoresArray = ignoreSettings
+			? ignoreSettings.split(",").map((f) => f.trim())
+			: [];
+
+		const isIgnored = (key: string) =>
+			ignoresArray.filter((ig) => key.includes(ig));
+
 		const deletedPaths = Object.keys(remoteNoteHashes).filter(
-			(key) => !isJsFile(key) && !isMarkedForPublish(key),
+			(key) =>
+				!isJsFile(key) && !isMarkedForPublish(key) && !isIgnored(key),
 		);
 
 		const pathsWithSha = deletedPaths.map((path) => {

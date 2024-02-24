@@ -23,6 +23,7 @@ export class GithubSettings {
 		this.initializeGitHubRepoSetting();
 		this.initializeGitHubUserNameSetting();
 		this.initializeGitHubTokenSetting();
+		this.initIgnoreFiles();
 	}
 
 	initializeHeader = () => {
@@ -142,6 +143,20 @@ export class GithubSettings {
 					.onChange(async (value) => {
 						this.settings.settings.githubToken = value;
 						await this.checkConnectionAndSaveSettings();
+					}),
+			);
+	}
+
+	private initIgnoreFiles() {
+		new Setting(this.settingsRootElement)
+			.setName("Ignore files")
+			.setDesc("ignored directory and files")
+			.addText((text) =>
+				text
+					.setPlaceholder(".github,index.md,.gitkeep")
+					.setValue(this.settings.settings.ignoredDirOrFiles)
+					.onChange(async (value) => {
+						this.settings.settings.ignoredDirOrFiles = value;
 					}),
 			);
 	}

@@ -57,4 +57,6 @@ export default interface DigitalGardenSettings {
 	ENABLE_DEVELOPER_TOOLS?: boolean;
 	devPluginPath?: string;
 	logLevel?: ILogLevel;
+
+	ignoredDirOrFiles: string;
 }
