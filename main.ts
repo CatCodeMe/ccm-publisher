@@ -25,7 +25,7 @@ const DEFAULT_SETTINGS: DigitalGardenSettings = {
 	noteSettingsIsInitialized: false,
 	siteName: "Digital Garden",
 	mainLanguage: "en",
-	slugifyEnabled: true,
+	slugifyEnabled: false,
 	// Note Icon Related Settings
 	noteIconKey: "dg-note-icon",
 	defaultNoteIcon: "",

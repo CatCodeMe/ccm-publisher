@@ -10,5 +10,6 @@
 			"files": [".prettierrc", ".eslintrc"],
 			"options": { "parser": "json" }
 		}
-	]
+	],
+	"endOfLine": "auto"
 }

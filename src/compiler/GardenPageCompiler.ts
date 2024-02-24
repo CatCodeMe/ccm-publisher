@@ -359,7 +359,10 @@ export class GardenPageCompiler {
 							const refBlock =
 								transclusionFileName.split("#^")[1];
 
-							sectionID = `#${slugify(refBlock)}`;
+							sectionID = `#${slugify(refBlock, {
+								preserveLeadingUnderscore: true,
+								preserveCharacters: ["-", "#"],
+							})}`;
 
 							const blockInFile =
 								publishLinkedFile.getBlock(refBlock);
@@ -381,14 +384,23 @@ export class GardenPageCompiler {
 
 							// This is to mitigate the issue where the header matching doesn't work properly with headers with special characters (e.g. :)
 							// Obsidian's autocomplete for transclusion omits such charcters which leads to full page transclusion instead of just the heading
-							const headerSlug = slugify(refHeader);
+							const headerSlug = slugify(refHeader, {
+								preserveLeadingUnderscore: true,
+								preserveCharacters: ["-", "#"],
+							});
 
 							const headerInFile = metadata?.headings?.find(
 								(header) =>
-									slugify(header.heading) === headerSlug,
+									slugify(header.heading, {
+										preserveLeadingUnderscore: true,
+										preserveCharacters: ["-", "#"],
+									}) === headerSlug,
 							);
 
-							sectionID = `#${slugify(refHeader)}`;
+							sectionID = `#${slugify(refHeader, {
+								preserveLeadingUnderscore: true,
+								preserveCharacters: ["-", "#"],
+							})}`;
 
 							if (headerInFile && metadata?.headings) {
 								const headerPosition =

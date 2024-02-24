@@ -40,7 +40,12 @@ function generateUrlPath(filePath: string, slugifyPath = true): string {
 	return (
 		extensionLessPath
 			.split("/")
-			.map((x) => slugify(x))
+			.map((x) =>
+				slugify(x, {
+					preserveLeadingUnderscore: true,
+					preserveCharacters: ["-", "#"],
+				}),
+			)
 			.join("/") + "/"
 	);
 }
