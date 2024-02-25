@@ -13,9 +13,10 @@ import { PublishFile } from "./src/publishFile/PublishFile";
 import { FRONTMATTER_KEYS } from "./src/publishFile/FileMetaDataManager";
 
 const DEFAULT_SETTINGS: DigitalGardenSettings = {
-	githubRepo: "",
+	// todo 为什么没加载到
+	githubRepo: "blog_from_obsidian",
 	githubToken: "",
-	githubUserName: "",
+	githubUserName: "CatCodeMe",
 	gardenBaseUrl: "",
 	prHistory: [],
 	baseTheme: "dark",
@@ -61,6 +62,7 @@ const DEFAULT_SETTINGS: DigitalGardenSettings = {
 		dgShowTags: false,
 	},
 	logLevel: undefined,
+	ignoredDirOrFiles: ".gitignore, .gitkeep, .github",
 };
 
 Logger.useDefaults({

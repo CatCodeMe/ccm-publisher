@@ -149,7 +149,7 @@ export class GithubSettings {
 
 	private initIgnoreFiles() {
 		new Setting(this.settingsRootElement)
-			.setName("Ignore files")
+			.setName("Ignore files (Optional)")
 			.setDesc("ignored directory and files")
 			.addText((text) =>
 				text

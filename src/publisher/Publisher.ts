@@ -17,8 +17,8 @@ export interface MarkedForPublishing {
 	images: string[];
 }
 
-export const IMAGE_PATH_BASE = "/img/user/";
-export const NOTE_PATH_BASE = "/";
+export const IMAGE_PATH_BASE = "img/user/";
+export const NOTE_PATH_BASE = "";
 
 /**
  * Prepares files to be published and publishes them to Github
