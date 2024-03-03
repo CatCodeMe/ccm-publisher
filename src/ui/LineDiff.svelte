@@ -24,13 +24,13 @@
 	}
 
 	.added {
-		background-color: rgba(170, 255, 170, 0.5);
+		background-color: rgba(33, 126, 33, 0.5);
 		color: var(--text-on-accent);
 		text-decoration: overline;
 	}
 
 	.removed {
-		background-color: rgba(255, 170, 170, 0.5);
+		background-color: rgba(218, 89, 89, 0.5);
 		color: var(--text-on-accent);
 		text-decoration: line-through;
 	}
