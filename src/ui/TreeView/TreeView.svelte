@@ -6,7 +6,7 @@
 	export let readOnly: boolean = false;
 	export let enableShowDiff: boolean = false;
 	export let showDiff: (path: string) => void;
-
+	export let checkedCnt: number = 0;
 	const treeMap: Record<string, TreeNode> = {
 		/* child label: parent node */
 	};
@@ -41,6 +41,7 @@
 		const node = e.detail.node;
 		let parent = treeMap[node.path];
 		rebuildChildren(node, checkAsParent);
+		let rootNode: TreeNode;
 
 		while (parent) {
 			const allCheck = parent?.children?.every((c) => !!c.checked);
@@ -49,22 +50,47 @@
 				parent.indeterminate = false;
 				parent.checked = true;
 			} else {
-				const haveCheckedOrIndetermine = parent?.children?.some(
+				const haveCheckedOrIndeterminate = parent?.children?.some(
 					(c) => !!c.checked || c.indeterminate,
 				);
 
-				if (haveCheckedOrIndetermine) {
-					parent.indeterminate = true;
-				} else {
-					parent.indeterminate = false;
-				}
+				parent.indeterminate = !!haveCheckedOrIndeterminate;
 				parent.checked = false;
 			}
 
+			rootNode = parent;
 			parent = treeMap[parent.path];
 		}
 		tree = tree;
+
+		if (node.isRoot) {
+			rootNode = node;
+		}
+		checkedCnt = countCheckedLeafNodes(rootNode);
 	}
+
+	function countCheckedLeafNodes(node: TreeNode): number {
+		let count = 0;
+
+		if (!node) {
+			return 0;
+		}
+
+		// 检查当前节点是否为叶子节点并且 checked 为 true
+		if (node.checked && !node.children) {
+			count++;
+		} else {
+			// 递归检查当前节点的子节点
+			if (node.children) {
+				for (const child of node.children) {
+					count += countCheckedLeafNodes(child);
+				}
+			}
+		}
+
+		return count;
+	}
+
 	// init the tree state
 	rebuildTree({ detail: { node: tree } }, false);
 </script>

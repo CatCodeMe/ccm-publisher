@@ -29,28 +29,16 @@ export default class PublishStatusManager implements IPublishStatusManager {
 		const isMarkedForPublish = (key: string) =>
 			marked.find((f) => f === key);
 
-		const ignoreSettings = this.publisher.settings.ignoredDirOrFiles;
-
-		const ignoresArray = ignoreSettings
-			? ignoreSettings.split(",").map((f) => f.trim())
-			: [];
-
-		const isIgnored = (key: string) =>
-			ignoresArray.filter((ig) => key.includes(ig));
-
 		const deletedPaths = Object.keys(remoteNoteHashes).filter(
-			(key) =>
-				!isJsFile(key) && !isMarkedForPublish(key) && !isIgnored(key),
+			(key) => !isJsFile(key) && !isMarkedForPublish(key),
 		);
 
-		const pathsWithSha = deletedPaths.map((path) => {
+		return deletedPaths.map((path) => {
 			return {
 				path,
 				sha: remoteNoteHashes[path],
 			};
 		});
-
-		return pathsWithSha;
 	}
 	async getPublishStatus(): Promise<PublishStatus> {
 		const unpublishedNotes: Array<CompiledPublishFile> = [];
@@ -100,7 +88,6 @@ export default class PublishStatusManager implements IPublishStatusManager {
 			marked.images,
 		);
 		// These might already be sorted, as getFilesMarkedForPublishing sorts already
-		publishedNotes.sort((a, b) => a.compare(b));
 		publishedNotes.sort((a, b) => a.compare(b));
 		changedNotes.sort((a, b) => a.compare(b));
 		deletedNotePaths.sort((a, b) => a.path.localeCompare(b.path));

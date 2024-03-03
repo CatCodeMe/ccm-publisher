@@ -18,8 +18,32 @@
 	let publishStatus: PublishStatus;
 	let showPublishingView: boolean = false;
 
+	let stat = {
+		unPub: {
+			checked: 0,
+			total: 0,
+		},
+		change: {
+			checked: 0,
+			total: 0,
+		},
+		del: {
+			checked: 0,
+			total: 0,
+		},
+		published: 0,
+	};
+
 	async function getPublishStatus() {
 		publishStatus = await publishStatusManager.getPublishStatus();
+		stat.unPub.total = publishStatus.unpublishedNotes?.length || 0;
+		stat.change.total = publishStatus.changedNotes?.length || 0;
+
+		stat.del.total =
+			(publishStatus.deletedNotePaths?.length || 0) +
+			(publishStatus.deletedNotePaths?.length || 0);
+
+		stat.published = publishStatus.publishedNotes?.length || 0;
 	}
 
 	onMount(getPublishStatus);
@@ -211,8 +235,11 @@
 
 				isDeleted = await publisher.deleteNote(path, sha);
 			} else {
+				const sha = publishStatus.deletedImagePaths.find(
+					(p) => p.path === path,
+				)?.sha;
 				// TODO: remove with sha
-				isDeleted = await publisher.deleteImage(path);
+				isDeleted = await publisher.deleteImage(path, sha);
 			}
 
 			processingPaths = processingPaths.filter((p) => p !== path);
@@ -242,15 +269,24 @@
 			<div>Calculating publication status from GitHub</div>
 		</div>
 	{:else if !showPublishingView}
-		<TreeView tree={unpublishedNoteTree ?? emptyNode} {showDiff} />
+		<TreeView
+			tree={unpublishedNoteTree ?? emptyNode}
+			{showDiff}
+			bind:checkedCnt={stat.unPub.checked}
+		/>
 
 		<TreeView
 			tree={changedNotesTree ?? emptyNode}
 			{showDiff}
 			enableShowDiff={true}
+			bind:checkedCnt={stat.change.checked}
 		/>
 
-		<TreeView tree={deletedNoteTree ?? emptyNode} {showDiff} />
+		<TreeView
+			tree={deletedNoteTree ?? emptyNode}
+			{showDiff}
+			bind:checkedCnt={stat.del.checked}
+		/>
 
 		<TreeView
 			readOnly={true}
@@ -261,6 +297,29 @@
 		<hr class="footer-separator" />
 
 		<div class="footer">
+			<span title="Unpublished Notes"
+				><Icon name="badge-plus" /><span style="color: red"
+					>{stat.unPub.checked}</span
+				><span>/{stat.unPub.total}</span>
+			</span>
+
+			<span title="Changed Notes"
+				><Icon name="file-diff" /><span style="color: red"
+					>{stat.change.checked}</span
+				><span>/{stat.change.total}</span></span
+			>
+
+			<span title="Deleted Notes"
+				><Icon name="badge-x" /><span style="color: red"
+					>{stat.del.checked}</span
+				><span>/{stat.del.total}</span></span
+			>
+
+			<span title="Published Notes"
+				><Icon name="check-circle" /><span style="color: forestgreen"
+					>{stat.published}</span
+				>
+			</span>
 			<button on:click={publishMarkedNotes}>PUBLISH SELECTED</button>
 		</div>
 	{:else}
@@ -324,7 +383,6 @@
 			{/each}
 
 			<hr class="footer-separator" />
-
 			<div class="footer">
 				<button on:click={close}>DONE</button>
 			</div>
@@ -334,7 +392,7 @@
 
 <style>
 	.title-separator {
-		margin-top: 0px;
+		margin-top: 0;
 		margin-bottom: 15px;
 	}
 
@@ -345,7 +403,11 @@
 
 	.footer {
 		display: flex;
-		justify-content: flex-end;
+		justify-content: space-between;
+		& > span {
+			display: flex;
+			align-items: center;
+		}
 	}
 
 	.loading-msg {

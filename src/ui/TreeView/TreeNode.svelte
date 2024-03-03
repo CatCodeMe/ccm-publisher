@@ -160,6 +160,8 @@
 	}
 	.arrowDown {
 		transform: rotate(90deg);
+		top: -5px;
+		position: relative;
 	}
 	ul.isRoot {
 		padding-left: 0;
