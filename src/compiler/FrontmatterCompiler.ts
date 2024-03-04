@@ -45,12 +45,12 @@ export class FrontmatterCompiler {
 		let publishedFrontMatter: TPublishedFrontMatter = {
 			"dg-publish": true,
 		};
-
-		publishedFrontMatter = this.addPermalink(
-			fileFrontMatter,
-			publishedFrontMatter,
-			file.getPath(),
-		);
+		// !conflict with Quartz
+		// publishedFrontMatter = this.addPermalink(
+		// 	fileFrontMatter,
+		// 	publishedFrontMatter,
+		// 	file.getPath(),
+		// );
 
 		publishedFrontMatter = this.addDefaultPassThrough(
 			fileFrontMatter,
