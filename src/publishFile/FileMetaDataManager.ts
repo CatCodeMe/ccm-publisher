@@ -1,12 +1,14 @@
 import { FrontMatterCache, TFile } from "obsidian";
 import DigitalGardenSettings from "../models/settings";
 import { DateTime } from "luxon";
+import { NOTE_PATH_BASE } from "../publisher/Publisher";
 
 // This should soon contain all the magic keys instead of them being hardcoded (with documentation)
 export enum FRONTMATTER_KEYS {
 	// The file should be published to the garden
 	PUBLISH = "dg-publish",
 	HOME = "dg-home",
+	CUSTOM_PATH = "dg-path",
 }
 
 export class FileMetadataManager {
@@ -58,5 +60,15 @@ export class FileMetadataManager {
 		}
 
 		return DateTime.fromMillis(this.file.stat.mtime).toISO() as string;
+	}
+	getCustomParentPath(): string {
+		const customDir = this.frontmatter[FRONTMATTER_KEYS.CUSTOM_PATH];
+
+		if (customDir) {
+			return NOTE_PATH_BASE + this.file.name;
+		}
+
+		//默认上传到根路径下
+		return this.file.path;
 	}
 }

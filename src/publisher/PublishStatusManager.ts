@@ -65,7 +65,9 @@ export default class PublishStatusManager implements IPublishStatusManager {
 			const [content, _] = compiledFile.getCompiledFile();
 
 			const localHash = generateBlobHash(content);
-			const remoteHash = remoteNoteHashes[file.getPath()];
+
+			const remoteHash =
+				remoteNoteHashes[file.meta.getCustomParentPath()];
 
 			if (!remoteHash) {
 				unpublishedNotes.push(compiledFile);
@@ -80,7 +82,22 @@ export default class PublishStatusManager implements IPublishStatusManager {
 
 		const deletedNotePaths = this.generateDeletedContentPaths(
 			remoteNoteHashes,
-			marked.notes.map((f) => f.getPath()),
+			//删除笔记和github仓库路径保持一致
+			marked.notes.map((f) => {
+				const customParentPath = f.meta.getCustomParentPath();
+				let i = 0;
+
+				// 找到第一个非 '/' 字符的位置
+				while (
+					i < customParentPath.length &&
+					customParentPath[i] === "/"
+				) {
+					i++;
+				}
+
+				// 截取字符串从第一个非 '/' 字符的位置开始
+				return customParentPath.substring(i);
+			}),
 		);
 
 		const deletedImagePaths = this.generateDeletedContentPaths(
