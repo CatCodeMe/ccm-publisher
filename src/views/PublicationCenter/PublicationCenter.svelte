@@ -41,7 +41,7 @@
 
 		stat.del.total =
 			(publishStatus.deletedNotePaths?.length || 0) +
-			(publishStatus.deletedNotePaths?.length || 0);
+			(publishStatus.deletedImagePaths?.length || 0);
 
 		stat.published = publishStatus.publishedNotes?.length || 0;
 	}
@@ -117,7 +117,10 @@
 	$: publishedNotesTree =
 		publishStatus &&
 		filePathsToTree(
-			publishStatus.publishedNotes.map((note) => note.getPath()),
+			//已发布的笔记路径，和github保持一致
+			publishStatus.publishedNotes.map((note) =>
+				note.meta.getCustomParentPath(),
+			),
 			"Published Notes",
 		);
 
@@ -269,34 +272,35 @@
 			<div>Calculating publication status from GitHub</div>
 		</div>
 	{:else if !showPublishingView}
-		<TreeView
-			tree={unpublishedNoteTree ?? emptyNode}
-			{showDiff}
-			bind:checkedCnt={stat.unPub.checked}
-		/>
+		<div class="viewContent">
+			<TreeView
+				tree={unpublishedNoteTree ?? emptyNode}
+				{showDiff}
+				bind:checkedCnt={stat.unPub.checked}
+			/>
 
-		<TreeView
-			tree={changedNotesTree ?? emptyNode}
-			{showDiff}
-			enableShowDiff={true}
-			bind:checkedCnt={stat.change.checked}
-		/>
+			<TreeView
+				tree={changedNotesTree ?? emptyNode}
+				{showDiff}
+				enableShowDiff={true}
+				bind:checkedCnt={stat.change.checked}
+			/>
 
-		<TreeView
-			tree={deletedNoteTree ?? emptyNode}
-			{showDiff}
-			bind:checkedCnt={stat.del.checked}
-		/>
+			<TreeView
+				tree={deletedNoteTree ?? emptyNode}
+				{showDiff}
+				bind:checkedCnt={stat.del.checked}
+			/>
 
-		<TreeView
-			readOnly={true}
-			tree={publishedNotesTree ?? emptyNode}
-			{showDiff}
-		/>
-
+			<TreeView
+				readOnly={true}
+				tree={publishedNotesTree ?? emptyNode}
+				{showDiff}
+			/>
+		</div>
 		<hr class="footer-separator" />
 
-		<div class="footer">
+		<div class="footer-select">
 			<span title="Unpublished Notes"
 				><Icon name="badge-plus" /><span style="color: red"
 					>{stat.unPub.checked}</span
@@ -304,13 +308,13 @@
 			</span>
 
 			<span title="Changed Notes"
-				><Icon name="file-diff" /><span style="color: red"
+				><Icon name="file-diff" /><span style="color: dodgerblue"
 					>{stat.change.checked}</span
 				><span>/{stat.change.total}</span></span
 			>
 
 			<span title="Deleted Notes"
-				><Icon name="badge-x" /><span style="color: red"
+				><Icon name="badge-x" /><span style="color: gray"
 					>{stat.del.checked}</span
 				><span>/{stat.del.total}</span></span
 			>
@@ -383,7 +387,7 @@
 			{/each}
 
 			<hr class="footer-separator" />
-			<div class="footer">
+			<div class="footer-done">
 				<button on:click={close}>DONE</button>
 			</div>
 		</div>
@@ -401,13 +405,17 @@
 		margin-bottom: 15px;
 	}
 
-	.footer {
+	.footer-select {
 		display: flex;
 		justify-content: space-between;
 		& > span {
 			display: flex;
 			align-items: center;
 		}
+	}
+
+	.footer-done {
+		float: right;
 	}
 
 	.loading-msg {
@@ -438,5 +446,11 @@
 	}
 	.deleted {
 		color: #ff5757;
+	}
+
+	.viewContent {
+		max-height: 300px;
+		overflow: auto;
+		scrollbar-width: thin;
 	}
 </style>

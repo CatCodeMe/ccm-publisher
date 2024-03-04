@@ -22,6 +22,8 @@
 
 	function rebuildChildren(node: TreeNode, checkAsParent = true) {
 		if (node.children) {
+			sortTreeNodesLikeGithub(node.children);
+
 			for (const child of node.children) {
 				if (checkAsParent) child.checked = !!node.checked;
 				rebuildChildren(child, checkAsParent);
@@ -89,6 +91,27 @@
 		}
 
 		return count;
+	}
+
+	function sortTreeNodesLikeGithub(treeNodes: TreeNode[]): TreeNode[] {
+		// 定义排序函数
+		const compareFunction = (a: TreeNode, b: TreeNode) => {
+			// 如果 a 没有子节点而 b 有子节点，则 a 排在 b 后面
+			if (!a.children && b.children) {
+				return 1;
+			}
+
+			// 如果 b 没有子节点而 a 有子节点，则 b 排在 a 后面
+			if (a.children && !b.children) {
+				return -1;
+			}
+
+			// 如果都没有子节点或都有子节点，则按字母顺序排序
+			return a.name.localeCompare(b.name);
+		};
+
+		// 对 treeNodes 数组进行排序
+		return treeNodes.sort(compareFunction);
 	}
 
 	// init the tree state

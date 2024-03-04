@@ -62,7 +62,7 @@
 		{#if tree.children}
 			<!-- svelte-ignore a11y-click-events-have-key-events -->
 			<!-- svelte-ignore a11y-no-static-element-interactions -->
-			<span>
+			<span class="node-line">
 				<span on:click={toggleExpansion} class="arrow" class:arrowDown>
 					<Icon name="chevron-right" />
 				</span>
@@ -93,9 +93,25 @@
 						/>
 					{/if}
 
-					<span class="root-header" on:click={toggleExpansion}
-						>{tree.name}</span
-					>
+					<span class="root-header" on:click={toggleExpansion}>
+						{#if tree.name.toLowerCase().includes("unpublished")}
+							<Icon name="badge-plus" /><span
+								class="root-header-name">{tree.name}</span
+							>
+						{:else if tree.name.toLowerCase().includes("changed")}
+							<Icon name="file-diff" /><span
+								class="root-header-name">{tree.name}</span
+							>
+						{:else if tree.name.toLowerCase().includes("delete")}
+							<Icon name="badge-x" /><span
+								class="root-header-name">{tree.name}</span
+							>
+						{:else}
+							<Icon name="check-circle" /><span
+								class="root-header-name">{tree.name}</span
+							>
+						{/if}
+					</span>
 				{/if}
 			</span>
 			{#if expanded}
@@ -111,7 +127,7 @@
 			{/if}
 		{:else if !isRoot}
 			<!-- svelte-ignore a11y-no-static-element-interactions -->
-			<span>
+			<span class="node-line">
 				<span class="no-arrow" />
 				<Icon name="file" />
 				{#if !readOnly}
@@ -160,8 +176,8 @@
 	}
 	.arrowDown {
 		transform: rotate(90deg);
-		top: -5px;
-		position: relative;
+		/*top: -5px;*/
+		/*position: relative;*/
 	}
 	ul.isRoot {
 		padding-left: 0;
@@ -198,5 +214,24 @@
 		cursor: pointer;
 		display: inline-block;
 		margin-left: 4px;
+	}
+
+	.root-header-name {
+		margin-left: 5px;
+	}
+
+	.node-line {
+		& > .arrow:not(.arrowDown),
+		& > span + svg,
+		& > svg + input[type="checkbox"],
+		& > input[type="checkbox"] + span {
+			vertical-align: middle;
+		}
+		/*flex: 1 1 auto;*/
+		/*text-align: right;*/
+		/*display: inline-flex;*/
+		/*justify-content: flex-start;*/
+		/*align-items: center;*/
+		/*gap: 8px;*/
 	}
 </style>
