@@ -13,10 +13,9 @@ import { PublishFile } from "./src/publishFile/PublishFile";
 import { FRONTMATTER_KEYS } from "./src/publishFile/FileMetaDataManager";
 
 const DEFAULT_SETTINGS: DigitalGardenSettings = {
-	// todo 为什么没加载到
-	githubRepo: "blog_from_obsidian",
+	githubRepo: "",
 	githubToken: "",
-	githubUserName: "CatCodeMe",
+	githubUserName: "",
 	gardenBaseUrl: "",
 	prHistory: [],
 	baseTheme: "dark",
