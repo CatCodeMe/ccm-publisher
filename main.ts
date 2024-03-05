@@ -1,8 +1,7 @@
-import { Notice, Platform, Plugin, Workspace, addIcon } from "obsidian";
+import { Notice, Platform, Plugin, Workspace } from "obsidian";
 import Publisher from "./src/publisher/Publisher";
 import DigitalGardenSettings from "./src/models/settings";
 import { PublishStatusBar } from "./src/views/PublishStatusBar";
-import { seedling } from "src/ui/suggest/constants";
 import { PublicationCenter } from "src/views/PublicationCenter/PublicationCenter";
 import PublishStatusManager from "src/publisher/PublishStatusManager";
 import ObsidianFrontMatterEngine from "src/publishFile/ObsidianFrontMatterEngine";
@@ -92,15 +91,103 @@ export default class DigitalGarden extends Plugin {
 
 		await this.addCommands();
 
-		addIcon("digital-garden-icon", seedling);
-
 		this.addRibbonIcon(
-			"digital-garden-icon",
-			"Digital Garden Publication Center",
+			// "digital-garden-icon",
+			"arrow-up-right-square",
+			"Quartz Publisher",
 			async () => {
 				this.openPublishModal();
 			},
 		);
+
+		// 监听document上的input事件，通过事件委托处理.metadata-property-key的内容变化
+		document.addEventListener("input", function (event) {
+			const target = event.target as HTMLElement;
+
+			if (!target) {
+				console.log("没有target");
+
+				return;
+			}
+
+			if (target.classList.contains("metadata-input-longtext")) {
+				// 检查触发事件的元素是否为.metadata-property-key或其子元素
+				const metadataKeyElement = target?.parentElement
+					?.previousSibling as HTMLElement;
+
+				if (
+					metadataKeyElement &&
+					metadataKeyElement.classList.contains(
+						"metadata-property-key",
+					)
+				) {
+					const propertyKeyEle = metadataKeyElement.querySelector(
+						".metadata-property-key-input",
+					) as HTMLInputElement;
+
+					const propertyKeyContent = propertyKeyEle.value;
+
+					// 如果内容为dg-path
+					if ("dg-path" === propertyKeyContent) {
+						const pathContent = target.textContent;
+
+						if (pathContent) {
+							// const match = /[[\]/#|^]/;
+							const regex =
+								/^(?!\/)(?!.*\/{2,})(?!.*[#^|[\]\\\\])(?=.*\/?$)[^[\]\\\\]*(\/[^[\]\\\\]*)?$/gm;
+
+							// 是否符合预期格式
+							//不能以特殊字符开头
+							//不包含连续的/
+							//不包含特殊字符
+							//结尾至多一个/, 可能没有
+							if (!regex.test(pathContent)) {
+								// 如果包含特殊字符，显示提示信息
+								const str = "\\/:#^|[]";
+
+								new Notice(
+									`\`dg-path\`属性不允许包含特殊符号(${str})，请修改`,
+								);
+							}
+						}
+					}
+				}
+			}
+		});
+
+		// 监听.metadata-property-key的内容变化
+		// document
+		// 	.querySelectorAll(".metadata-property-key")
+		// 	.forEach(function (element) {
+		// 		element.addEventListener("input", function () {
+		// 			// 获取.metadata-property-key的内容
+		// 			// @ts-ignore
+		// 			const keyContent = element.textContent?.trim();
+		//
+		// 			// 如果内容为dg-path
+		// 			if (keyContent === "dg-path") {
+		// 				const valueContent =
+		// 					element?.nextElementSibling?.querySelector(
+		// 						".metadata-input-longtext",
+		// 					)?.textContent;
+		//
+		// 				if (!valueContent) {
+		// 					return;
+		// 				}
+		//
+		// 				const match = `/[\\[\\]#^\\\\/]/`;
+		//
+		// 				// 进行特殊字符的校验
+		// 				if (valueContent.match(match)) {
+		// 					// 如果包含特殊字符，显示提示信息
+		// 					console.log("有异常");
+		// 				} else {
+		// 					// 如果不包含特殊字符，隐藏提示信息
+		// 					console.log("无异常");
+		// 				}
+		// 			}
+		// 		});
+		// 	});
 	}
 
 	onunload() {}
