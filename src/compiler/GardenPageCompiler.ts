@@ -98,7 +98,7 @@ export class GardenPageCompiler {
 			// this.createBlockIDs,
 			// this.createTranscludedText(0),
 			this.convertDataViews,
-			// this.convertLinksToFullPath,
+			this.convertLinksToFullPath,
 			this.removeObsidianComments,
 			this.createSvgEmbeds,
 		];
@@ -202,11 +202,11 @@ export class GardenPageCompiler {
 	convertLinksToFullPath: TCompilerStep = (file) => async (text) => {
 		let convertedText = text;
 
-		const textToBeProcessed =
-			await this.stripAwayCodeFencesAndFrontmatter(file)(text);
+		// const textToBeProcessed =
+		// 	await this.stripAwayCodeFencesAndFrontmatter(file)(text);
 
 		const linkedFileRegex = /\[\[(.+?)\]\]/g;
-		const linkedFileMatches = textToBeProcessed.match(linkedFileRegex);
+		const linkedFileMatches = convertedText.match(linkedFileRegex);
 
 		if (linkedFileMatches) {
 			for (const linkMatch of linkedFileMatches) {
@@ -216,6 +216,7 @@ export class GardenPageCompiler {
 						linkMatch.lastIndexOf("]") - 1,
 					);
 
+					// eslint-disable-next-line prefer-const
 					let [linkedFileName, linkDisplayName] =
 						textInsideBrackets.split("|");
 
@@ -226,7 +227,7 @@ export class GardenPageCompiler {
 						);
 					}
 
-					linkDisplayName = linkDisplayName || linkedFileName;
+					// linkDisplayName = linkDisplayName || linkedFileName;
 					let headerPath = "";
 
 					// detect links to headers or blocks
@@ -246,23 +247,43 @@ export class GardenPageCompiler {
 					);
 
 					if (!linkedFile) {
-						// convertedText = convertedText.replace(
-						// 	linkMatch,
-						// 	`[[${linkedFileName}${headerPath}\\|${linkDisplayName}]]`,
-						// );
+						continue;
+					}
+
+					const publishLinkedFile = new PublishFile({
+						file: linkedFile,
+						compiler: this,
+						metadataCache: this.metadataCache,
+						vault: this.vault,
+						settings: this.settings,
+					});
+
+					if (linkedFile.path.includes(".excalidraw.md")) {
+						//TODO 暂不支持直接嵌入excalidraw
 						continue;
 					}
 
 					if (linkedFile.extension === "md") {
-						const extensionlessPath = linkedFile.path.substring(
+						const remotePath = publishLinkedFile
+							.getFileMetadataManager()
+							.getCustomPath();
+
+						const replacePath = remotePath.substring(
 							0,
 							linkedFile.path.lastIndexOf("."),
 						);
 
-						convertedText = convertedText.replace(
-							linkMatch,
-							`[[${extensionlessPath}${headerPath}\\|${linkDisplayName}]]`,
-						);
+						if (!linkDisplayName) {
+							convertedText = convertedText.replace(
+								linkMatch,
+								`[[${replacePath}${headerPath}]]`,
+							);
+						} else {
+							convertedText = convertedText.replace(
+								linkMatch,
+								`[[${replacePath}${headerPath}|${linkDisplayName}]]`,
+							);
+						}
 					}
 				} catch (e) {
 					console.log(e);
@@ -274,222 +295,111 @@ export class GardenPageCompiler {
 		return convertedText;
 	};
 
-	// createTranscludedText =
-	// 	(currentDepth: number): TCompilerStep =>
-	// 	(file) =>
-	// 	async (text) => {
-	// 		if (currentDepth >= 4) {
-	// 			return text;
-	// 		}
-	// 		//为了通过校验
-	// 		// console.log(file.getPath());
-	// 		// const { notes: publishedFiles } =
-	// 		// 	await this.getFilesMarkedForPublishing();
-	//
-	// 		// const transcludedRegex = /!\[\[(.+?)\]\]/g;
-	// 		// const transclusionMatches = text.match(transcludedRegex);
-	// 		// let numberOfExcaliDraws = 0;
-	//
-	// 		// for (const transclusionMatch of transclusionMatches ?? []) {
-	// 		// 	try {
-	// 		// 		const [transclusionFileName, headerName] = transclusionMatch
-	// 		// 			.substring(
-	// 		// 				transclusionMatch.indexOf("[") + 2,
-	// 		// 				transclusionMatch.indexOf("]"),
-	// 		// 			)
-	// 		// 			.split("|");
-	// 		//
-	// 		// 		const transclusionFilePath =
-	// 		// 			getLinkpath(transclusionFileName);
-	// 		//
-	// 		// 		const linkedFile = this.metadataCache.getFirstLinkpathDest(
-	// 		// 			transclusionFilePath,
-	// 		// 			file.getPath(),
-	// 		// 		);
-	// 		//
-	// 		// 		if (!linkedFile) {
-	// 		// 			console.error(
-	// 		// 				`can't find transcluded file ${transclusionFilePath}`,
-	// 		// 			);
-	// 		// 			continue;
-	// 		// 		}
-	// 		//
-	// 		// 		const publishLinkedFile = new PublishFile({
-	// 		// 			file: linkedFile,
-	// 		// 			compiler: this,
-	// 		// 			metadataCache: this.metadataCache,
-	// 		// 			vault: this.vault,
-	// 		// 			settings: this.settings,
-	// 		// 		});
-	// 		// 		// const sectionID = "";
-	// 		//
-	// 		// 		if (linkedFile.name.endsWith(".excalidraw.md")) {
-	// 		// 			numberOfExcaliDraws++;
-	// 		// 			const isFirstDrawing = numberOfExcaliDraws === 1;
-	// 		//
-	// 		// 			const fileText = await publishLinkedFile.cachedRead();
-	// 		//
-	// 		// 			const excaliDrawCode =
-	// 		// 				await this.excalidrawCompiler.compileMarkdown({
-	// 		// 					includeExcaliDrawJs: isFirstDrawing,
-	// 		// 					idAppendage: `${numberOfExcaliDraws}`,
-	// 		// 					includeFrontMatter: false,
-	// 		// 				})(publishLinkedFile)(fileText);
-	// 		//
-	// 		// 			transcludedText = transcludedText.replace(
-	// 		// 				transclusionMatch,
-	// 		// 				excaliDrawCode,
-	// 		// 			);
-	// 		// 		} else if (linkedFile.extension === "md") {
-	// 		// 			let fileText = await publishLinkedFile.cachedRead();
-	// 		//
-	// 		// 			const metadata = publishLinkedFile.getMetadata();
-	// 		//
-	// 		// 			if (transclusionFileName.includes("#^")) {
-	// 		// 				// Transclude Block
-	// 		// 				// const refBlock =
-	// 		// 				// 	transclusionFileName.split("#^")[1];
-	// 		// 				// sectionID = `#${slugify(refBlock, {
-	// 		// 				// 	preserveLeadingUnderscore: true,
-	// 		// 				// 	preserveCharacters: ["_"],
-	// 		// 				// })}`;
-	// 		// 				// const blockInFile =
-	// 		// 				// 	publishLinkedFile.getBlock(refBlock);
-	// 		// 				// if (blockInFile) {
-	// 		// 				// 	fileText = fileText
-	// 		// 				// 		.split("\n")
-	// 		// 				// 		.slice(
-	// 		// 				// 			blockInFile.position.start.line,
-	// 		// 				// 			blockInFile.position.end.line + 1,
-	// 		// 				// 		)
-	// 		// 				// 		.join("\n")
-	// 		// 				// 		.replace(`^${refBlock}`, "");
-	// 		// 				// }
-	// 		// 			} else if (transclusionFileName.includes("#")) {
-	// 		// 				// transcluding header only
-	// 		// 				const refHeader =
-	// 		// 					transclusionFileName.split("#")[1];
-	// 		//
-	// 		// 				// This is to mitigate the issue where the header matching doesn't work properly with headers with special characters (e.g. :)
-	// 		// 				// Obsidian's autocomplete for transclusion omits such charcters which leads to full page transclusion instead of just the heading
-	// 		// 				const headerSlug = slugify(refHeader, {
-	// 		// 					preserveLeadingUnderscore: true,
-	// 		// 					preserveCharacters: ["_"],
-	// 		// 				});
-	// 		//
-	// 		// 				const headerInFile = metadata?.headings?.find(
-	// 		// 					(header) =>
-	// 		// 						slugify(header.heading, {
-	// 		// 							preserveLeadingUnderscore: true,
-	// 		// 							preserveCharacters: ["_"],
-	// 		// 						}) === headerSlug,
-	// 		// 				);
-	// 		//
-	// 		// 				// sectionID = `#${slugify(refHeader, {
-	// 		// 				// 	preserveLeadingUnderscore: true,
-	// 		// 				// 	preserveCharacters: ["_"],
-	// 		// 				// })}`;
-	// 		//
-	// 		// 				if (headerInFile && metadata?.headings) {
-	// 		// 					const headerPosition =
-	// 		// 						metadata.headings.indexOf(headerInFile);
-	// 		//
-	// 		// 					// Embed should copy the content proparly under the given block
-	// 		// 					const cutTo = metadata.headings
-	// 		// 						.slice(headerPosition + 1)
-	// 		// 						.find(
-	// 		// 							(header) =>
-	// 		// 								header.level <= headerInFile.level,
-	// 		// 						);
-	// 		//
-	// 		// 					if (cutTo) {
-	// 		// 						const cutToLine =
-	// 		// 							cutTo?.position?.start?.line;
-	// 		//
-	// 		// 						fileText = fileText
-	// 		// 							.split("\n")
-	// 		// 							.slice(
-	// 		// 								headerInFile.position.start.line,
-	// 		// 								cutToLine,
-	// 		// 							)
-	// 		// 							.join("\n");
-	// 		// 					} else {
-	// 		// 						fileText = fileText
-	// 		// 							.split("\n")
-	// 		// 							.slice(headerInFile.position.start.line)
-	// 		// 							.join("\n");
-	// 		// 					}
-	// 		// 				}
-	// 		// 			}
-	// 		// 			//Remove frontmatter from transclusion
-	// 		// 			fileText = fileText.replace(FRONTMATTER_REGEX, "");
-	// 		//
-	// 		// 			// Apply custom filters to transclusion
-	// 		// 			fileText =
-	// 		// 				await this.convertCustomFilters(publishLinkedFile)(
-	// 		// 					fileText,
-	// 		// 				);
-	// 		//
-	// 		// 			// Remove block reference
-	// 		// 			// fileText = fileText.replace(BLOCKREF_REGEX, "");
-	// 		//
-	// 		// 			// const header = this.generateTransclusionHeader(
-	// 		// 			// 	headerName,
-	// 		// 			// 	linkedFile,
-	// 		// 			// );
-	// 		// 			//
-	// 		// 			// const headerSection = header
-	// 		// 			// 	? `<div class="markdown-embed-title">\n\n${header}\n\n</div>\n`
-	// 		// 			// 	: "";
-	// 		// 			// const embedded_link = "";
-	// 		//
-	// 		// 			const publishedFilesContainsLinkedFile =
-	// 		// 				publishedFiles.find(
-	// 		// 					(f) => f.getPath() == linkedFile.path,
-	// 		// 				);
-	// 		//
-	// 		// 			if (publishedFilesContainsLinkedFile) {
-	// 		// 				// const permalink =
-	// 		// 				// 	metadata?.frontmatter &&
-	// 		// 				// 	metadata.frontmatter["dg-permalink"];
-	// 		// 				// const gardenPath = permalink
-	// 		// 				// 	? sanitizePermalink(permalink)
-	// 		// 				// 	: `/${generateUrlPath(
-	// 		// 				// 			getGardenPathForNote(
-	// 		// 				// 				linkedFile.path,
-	// 		// 				// 				this.rewriteRules,
-	// 		// 				// 			),
-	// 		// 				// 	  )}`;
-	// 		// 				// embedded_link = `<a class="markdown-embed-link" href="${gardenPath}${sectionID}" aria-label="Open link"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon lucide-link"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></a>`;
-	// 		// 			}
-	// 		//
-	// 		// 			// fileText =
-	// 		// 			// 	`\n<div class="transclusion internal-embed is-loaded">${embedded_link}<div class="markdown-embed">\n\n${headerSection}\n\n` +
-	// 		// 			// 	fileText +
-	// 		// 			// 	"\n\n</div></div>\n";
-	// 		//
-	// 		// 			fileText = linkedFile.path;
-	// 		//
-	// 		// 			// if (fileText.match(transcludedRegex)) {
-	// 		// 			// 	fileText = await this.createTranscludedText(
-	// 		// 			// 		currentDepth + 1,
-	// 		// 			// 	)(publishLinkedFile)(fileText);
-	// 		// 			// }
-	// 		//
-	// 		// 			//This should be recursive up to a certain depth
-	// 		// 			// transcludedText = transcludedText.replace(
-	// 		// 			// 	transclusionMatch,
-	// 		// 			// 	fileText,
-	// 		// 			// );
-	// 		// 		}
-	// 		// 	} catch (error) {
-	// 		// 		console.error(error);
-	// 		// 		continue;
-	// 		// 	}
-	// 		// }
-	//
-	// 		return text;
-	// 	};
+	createTranscludedText =
+		(currentDepth: number): TCompilerStep =>
+		(file) =>
+		async (text) => {
+			if (currentDepth >= 1) {
+				return text;
+			}
+
+			const { notes: publishedFiles } =
+				await this.getFilesMarkedForPublishing();
+
+			let transcludedText = text;
+
+			const transcludedRegex = /!\[\[(.+?)\]\]/g;
+			const transclusionMatches = text.match(transcludedRegex);
+
+			for (const transclusionMatch of transclusionMatches ?? []) {
+				try {
+					const [transclusionFileName] = transclusionMatch
+						.substring(
+							transclusionMatch.indexOf("[") + 2,
+							transclusionMatch.indexOf("]"),
+						)
+						.split("|");
+
+					const transclusionFilePath =
+						getLinkpath(transclusionFileName);
+
+					const linkedFile = this.metadataCache.getFirstLinkpathDest(
+						transclusionFilePath,
+						file.getPath(),
+					);
+
+					if (!linkedFile) {
+						console.error(
+							`can't find transcluded file ${transclusionFilePath}`,
+						);
+						continue;
+					}
+
+					const publishLinkedFile = new PublishFile({
+						file: linkedFile,
+						compiler: this,
+						metadataCache: this.metadataCache,
+						vault: this.vault,
+						settings: this.settings,
+					});
+
+					if (linkedFile.extension === "md") {
+						let fileText = await publishLinkedFile.cachedRead();
+
+						// const metadata = publishLinkedFile.getMetadata();
+						const fileMetadataManager =
+							publishLinkedFile.getFileMetadataManager();
+
+						if (transclusionFileName.includes("#")) {
+							const transclusionFilePath =
+								transclusionFileName.split("#")[0];
+
+							fileText = fileText.replace(
+								"[[" + transclusionFilePath,
+								"[[" + fileMetadataManager.getCustomPath,
+							);
+						}
+
+						const publishedFilesContainsLinkedFile =
+							publishedFiles.find(
+								(f) => f.getPath() == linkedFile.path,
+							);
+
+						if (publishedFilesContainsLinkedFile) {
+							// const permalink =
+							// 	metadata?.frontmatter &&
+							// 	metadata.frontmatter["dg-permalink"];
+							// const gardenPath = permalink
+							// 	? sanitizePermalink(permalink)
+							// 	: `/${generateUrlPath(
+							// 			getGardenPathForNote(
+							// 				linkedFile.path,
+							// 				this.rewriteRules,
+							// 			),
+							// 	  )}`;
+							// embedded_link = `<a class="markdown-embed-link" href="${gardenPath}${sectionID}" aria-label="Open link"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon lucide-link"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></a>`;
+						}
+
+						if (fileText.match(transcludedRegex)) {
+							fileText = await this.createTranscludedText(
+								currentDepth + 1,
+							)(publishLinkedFile)(fileText);
+						}
+
+						//This should be recursive up to a certain depth
+						transcludedText = transcludedText.replace(
+							transclusionMatch,
+							fileText,
+						);
+					}
+				} catch (error) {
+					console.error(error);
+					continue;
+				}
+			}
+
+			return transcludedText;
+		};
 
 	createSvgEmbeds: TCompilerStep = (file) => async (text) => {
 		function setWidth(svgText: string, size: string): string {

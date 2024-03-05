@@ -1,7 +1,6 @@
 import { FrontMatterCache, TFile } from "obsidian";
 import DigitalGardenSettings from "../models/settings";
 import { DateTime } from "luxon";
-import { NOTE_PATH_BASE } from "../publisher/Publisher";
 
 // This should soon contain all the magic keys instead of them being hardcoded (with documentation)
 export enum FRONTMATTER_KEYS {
@@ -61,14 +60,20 @@ export class FileMetadataManager {
 
 		return DateTime.fromMillis(this.file.stat.mtime).toISO() as string;
 	}
-	getCustomParentPath(): string {
-		const customDir = this.frontmatter[FRONTMATTER_KEYS.CUSTOM_PATH];
+	getCustomPath(): string {
+		let customDir = this.frontmatter[FRONTMATTER_KEYS.CUSTOM_PATH];
 
-		if (customDir) {
-			return NOTE_PATH_BASE + this.file.name;
+		if (!customDir || customDir.trim() === "") {
+			return this.file.path;
 		}
 
-		//默认上传到根路径下
-		return this.file.path;
+		//todo slugify 支持中文和obsidian的规则
+		//替换非法路径前缀，/，#，空格,
+		// const result = customDir.replace(/^[/\s#]+/, "");
+		if (!customDir.trim().endsWith("/")) {
+			customDir = customDir.trim() + "/";
+		}
+
+		return customDir + this.file.name;
 	}
 }

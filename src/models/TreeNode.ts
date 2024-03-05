@@ -5,6 +5,7 @@ type TreeNode = {
 	path: string;
 	checked: boolean;
 	indeterminate: boolean;
+	remotePath: string;
 };
 
 export default TreeNode;

@@ -1,11 +1,12 @@
 <script lang="ts">
 	import Node from "./TreeNode.svelte";
 	import TreeNode from "src/models/TreeNode";
+	import PathPair from "../../models/PathPair";
 
 	export let tree: TreeNode;
 	export let readOnly: boolean = false;
 	export let enableShowDiff: boolean = false;
-	export let showDiff: (path: string) => void;
+	export let showDiff: (pathPair: PathPair) => void;
 	export let checkedCnt: number = 0;
 	const treeMap: Record<string, TreeNode> = {
 		/* child label: parent node */
@@ -124,7 +125,10 @@
 		{readOnly}
 		{enableShowDiff}
 		on:toggle={rebuildTree}
-		on:showDiff={(e) => showDiff(e.detail.node.path)}
+		on:showDiff={(e) =>
+			showDiff(
+				new PathPair(e.detail.node.path, e.detail.node.remotePath),
+			)}
 	/>
 </div>
 

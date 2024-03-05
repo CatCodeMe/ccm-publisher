@@ -66,8 +66,7 @@ export default class PublishStatusManager implements IPublishStatusManager {
 
 			const localHash = generateBlobHash(content);
 
-			const remoteHash =
-				remoteNoteHashes[file.meta.getCustomParentPath()];
+			const remoteHash = remoteNoteHashes[file.meta.getCustomPath()];
 
 			if (!remoteHash) {
 				unpublishedNotes.push(compiledFile);
@@ -84,7 +83,7 @@ export default class PublishStatusManager implements IPublishStatusManager {
 			remoteNoteHashes,
 			//删除笔记和github仓库路径保持一致
 			marked.notes.map((f) => {
-				const customParentPath = f.meta.getCustomParentPath();
+				const customParentPath = f.meta.getCustomPath();
 				let i = 0;
 
 				// 找到第一个非 '/' 字符的位置

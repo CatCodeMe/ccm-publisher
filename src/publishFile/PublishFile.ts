@@ -111,6 +111,10 @@ export class PublishFile {
 
 		return frontmatterCompiler.compile(this, metadata);
 	}
+
+	getFileMetadataManager() {
+		return this.meta;
+	}
 }
 
 export class CompiledPublishFile extends PublishFile {

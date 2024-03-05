@@ -82,6 +82,13 @@
 					<span on:click={toggleExpansion}>{tree.name}</span>
 				{:else}
 					{#if !readOnly}
+						{#if tree.name.toLowerCase().includes("unpublished")}
+							⬆️
+						{:else if tree.name.toLowerCase().includes("changed")}
+							🔂
+						{:else if tree.name.toLowerCase().includes("delete")}
+							❌
+						{/if}
 						<input
 							type="checkbox"
 							data-label={tree.name}
@@ -91,26 +98,21 @@
 							}}
 							on:click={toggleCheck}
 						/>
+					{:else}
+						✅
 					{/if}
 
 					<span class="root-header" on:click={toggleExpansion}>
-						{#if tree.name.toLowerCase().includes("unpublished")}
-							<Icon name="badge-plus" /><span
-								class="root-header-name">{tree.name}</span
-							>
-						{:else if tree.name.toLowerCase().includes("changed")}
-							<Icon name="file-diff" /><span
-								class="root-header-name">{tree.name}</span
-							>
-						{:else if tree.name.toLowerCase().includes("delete")}
-							<Icon name="badge-x" /><span
-								class="root-header-name">{tree.name}</span
-							>
-						{:else}
-							<Icon name="check-circle" /><span
-								class="root-header-name">{tree.name}</span
-							>
-						{/if}
+						{tree.name}
+						<!--{#if tree.name.toLowerCase().includes("unpublished")}-->
+						<!--	<span class="root-header-name">⬆️{tree.name}</span>-->
+						<!--{:else if tree.name.toLowerCase().includes("changed")}-->
+						<!--	<span class="root-header-name">🔂 {tree.name}</span>-->
+						<!--{:else if tree.name.toLowerCase().includes("delete")}-->
+						<!--	<span class="root-header-name">❌ {tree.name}</span>-->
+						<!--{:else}-->
+						<!--	<span class="root-header-name">✅ {tree.name}</span>-->
+						<!--{/if}-->
 					</span>
 				{/if}
 			</span>
@@ -212,13 +214,14 @@
 
 	.diff {
 		cursor: pointer;
-		display: inline-block;
 		margin-left: 4px;
+		position: relative;
+		top: 3px;
 	}
 
-	.root-header-name {
-		margin-left: 5px;
-	}
+	/*.root-header-name {*/
+	/*	margin-left: 5px;*/
+	/*}*/
 
 	.node-line {
 		& > .arrow:not(.arrowDown),
@@ -227,11 +230,5 @@
 		& > input[type="checkbox"] + span {
 			vertical-align: middle;
 		}
-		/*flex: 1 1 auto;*/
-		/*text-align: right;*/
-		/*display: inline-flex;*/
-		/*justify-content: flex-start;*/
-		/*align-items: center;*/
-		/*gap: 8px;*/
 	}
 </style>

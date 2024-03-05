@@ -122,7 +122,7 @@ export default class Publisher {
 
 		try {
 			const [text, assets] = file.compiledFile;
-			const customPathAfterUpload = file.meta.getCustomParentPath();
+			const customPathAfterUpload = file.meta.getCustomPath();
 
 			await this.uploadText(
 				customPathAfterUpload,

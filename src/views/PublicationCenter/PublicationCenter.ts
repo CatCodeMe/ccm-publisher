@@ -7,6 +7,7 @@ import Publisher from "../../publisher/Publisher";
 import PublicationCenterSvelte from "./PublicationCenter.svelte";
 import DiffView from "./DiffView.svelte";
 import * as Diff from "diff";
+import PathPair from "../../models/PathPair";
 
 export class PublicationCenter {
 	modal: Modal;
@@ -47,11 +48,15 @@ export class PublicationCenter {
 		return icon;
 	}
 
-	private showDiff = async (notePath: string) => {
+	private showDiff = async (pathPair: PathPair) => {
 		try {
-			const remoteContent =
-				await this.siteManager.getNoteContent(notePath);
-			const localFile = this.vault.getAbstractFileByPath(notePath);
+			const remoteContent = await this.siteManager.getNoteContent(
+				pathPair.remotePath,
+			);
+
+			const localFile = this.vault.getAbstractFileByPath(
+				pathPair.localPath,
+			);
 
 			const localPublishFile = new PublishFile({
 				file: localFile as TFile,
@@ -78,7 +83,11 @@ export class PublicationCenter {
 				diffModal.onOpen = () => {
 					diffView = new DiffView({
 						target: diffModal.contentEl,
-						props: { diff: diff },
+						props: {
+							diff: diff,
+							localPath: pathPair.localPath,
+							remotePath: pathPair.remotePath,
+						},
 					});
 				};
 

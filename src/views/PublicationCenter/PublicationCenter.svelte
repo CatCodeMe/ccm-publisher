@@ -10,9 +10,11 @@
 	import Publisher from "src/publisher/Publisher";
 	import Icon from "../../ui/Icon.svelte";
 	import { CompiledPublishFile } from "src/publishFile/PublishFile";
+	import PathPair from "../../models/PathPair";
+
 	export let publishStatusManager: IPublishStatusManager;
 	export let publisher: Publisher;
-	export let showDiff: (path: string) => void;
+	export let showDiff: (path: PathPair) => void;
 	export let close: () => void;
 
 	let publishStatus: PublishStatus;
@@ -48,8 +50,10 @@
 
 	onMount(getPublishStatus);
 
-	function insertIntoTree(tree: TreeNode, pathComponents: string[]): void {
+	function insertIntoTree(tree: TreeNode, pathPair: PathPair): void {
 		let currentNode = tree;
+
+		const pathComponents = pathPair.localPath.split(`/`);
 
 		for (let i = 0; i < pathComponents.length; i++) {
 			const part = pathComponents[i];
@@ -69,6 +73,7 @@
 					path: pathComponents.slice(0, i + 1).join("/"),
 					indeterminate: false,
 					checked: false,
+					remotePath: pathPair.remotePath,
 				};
 				currentNode.children.push(childNode);
 			}
@@ -78,7 +83,7 @@
 	}
 
 	function filePathsToTree(
-		filePaths: string[],
+		filePaths: PathPair[],
 		rootName: string = "root",
 	): TreeNode {
 		const root: TreeNode = {
@@ -87,11 +92,13 @@
 			path: "/",
 			indeterminate: false,
 			checked: false,
+			remotePath: "/",
 		};
 
-		for (const filePath of filePaths) {
-			const pathComponents = filePath.split("/");
-			insertIntoTree(root, pathComponents);
+		for (const pathPair of filePaths) {
+			// const pathComponents = filePath.localPath.split("/");
+
+			insertIntoTree(root, pathPair);
 		}
 
 		return root;
@@ -118,8 +125,12 @@
 		publishStatus &&
 		filePathsToTree(
 			//已发布的笔记路径，和github保持一致
-			publishStatus.publishedNotes.map((note) =>
-				note.meta.getCustomParentPath(),
+			publishStatus.publishedNotes.map(
+				(note) =>
+					new PathPair(
+						note.meta.getCustomPath(),
+						note.meta.getCustomPath(),
+					),
 			),
 			"Published Notes",
 		);
@@ -127,7 +138,13 @@
 	$: changedNotesTree =
 		publishStatus &&
 		filePathsToTree(
-			publishStatus.changedNotes.map((note) => note.getPath()),
+			publishStatus.changedNotes.map(
+				(note) =>
+					new PathPair(
+						note.getPath(),
+						note.meta.getCustomPath(),
+					),
+			),
 			"Changed Notes",
 		);
 
@@ -137,14 +154,16 @@
 			[
 				...publishStatus.deletedNotePaths,
 				...publishStatus.deletedImagePaths,
-			].map((path) => path.path),
+			].map((path) => new PathPair(path.path, "")),
 			"Deleted Notes",
 		);
 
 	$: unpublishedNoteTree =
 		publishStatus &&
 		filePathsToTree(
-			publishStatus.unpublishedNotes.map((note) => note.getPath()),
+			publishStatus.unpublishedNotes.map(
+				(note) => new PathPair(note.getPath(), ""),
+			),
 			"Unpublished Notes",
 		);
 
@@ -261,6 +280,7 @@
 		path: "",
 		indeterminate: false,
 		checked: false,
+		remotePath: "",
 	};
 </script>
 
@@ -302,27 +322,24 @@
 
 		<div class="footer-select">
 			<span title="Unpublished Notes"
-				><Icon name="badge-plus" /><span style="color: red"
-					>{stat.unPub.checked}</span
-				><span>/{stat.unPub.total}</span>
+				>⬆️<span style="color: red"> {stat.unPub.checked}</span><span
+					>/{stat.unPub.total}</span
+				>
 			</span>
 
 			<span title="Changed Notes"
-				><Icon name="file-diff" /><span style="color: dodgerblue"
-					>{stat.change.checked}</span
+				><span style="color: dodgerblue">🔂 {stat.change.checked}</span
 				><span>/{stat.change.total}</span></span
 			>
 
 			<span title="Deleted Notes"
-				><Icon name="badge-x" /><span style="color: gray"
-					>{stat.del.checked}</span
-				><span>/{stat.del.total}</span></span
+				><span style="color: gray">❌ {stat.del.checked}</span><span
+					>/{stat.del.total}</span
+				></span
 			>
 
 			<span title="Published Notes"
-				><Icon name="check-circle" /><span style="color: forestgreen"
-					>{stat.published}</span
-				>
+				><span style="color: forestgreen">✅ {stat.published}</span>
 			</span>
 			<button on:click={publishMarkedNotes}>PUBLISH SELECTED</button>
 		</div>
@@ -408,6 +425,7 @@
 	.footer-select {
 		display: flex;
 		justify-content: space-between;
+
 		& > span {
 			display: flex;
 			align-items: center;
@@ -424,12 +442,14 @@
 		align-items: center;
 		flex-direction: column;
 	}
+
 	button {
 		background-color: var(--interactive-accent);
 		color: var(--text-on-accent);
 		cursor: pointer;
 		font-weight: bold;
 	}
+
 	.loading-container {
 		width: 100%;
 		height: 5px;
@@ -441,9 +461,11 @@
 		height: 100%;
 		transition: all 0.5s ease-in-out;
 	}
+
 	.published {
 		color: #8bff8b;
 	}
+
 	.deleted {
 		color: #ff5757;
 	}
