@@ -140,10 +140,7 @@
 		filePathsToTree(
 			publishStatus.changedNotes.map(
 				(note) =>
-					new PathPair(
-						note.getPath(),
-						note.meta.getCustomPath(),
-					),
+					new PathPair(note.getPath(), note.meta.getCustomPath()),
 			),
 			"Changed Notes",
 		);
