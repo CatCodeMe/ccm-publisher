@@ -336,6 +336,7 @@
 
 			for (let i = addOrUpdateImages.length - 1; i >= 0; i--) {
 				let image = addOrUpdateImages[i];
+
 				const updateResult = await publisher.updateImage(
 					image,
 					commitMsg,
