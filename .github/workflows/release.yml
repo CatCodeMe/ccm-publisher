@@ -10,7 +10,6 @@ on:
 
 jobs:
     build-and-test:
-        if: ${{ github.repository == 'CatCodeMe/ccm-publisher' }}
         strategy:
             matrix:
                 os: [windows-latest, macos-latest, ubuntu-latest]
@@ -44,7 +43,6 @@ jobs:
               run: npm run build
 
     publish-tag:
-        if: ${{ github.repository == 'CatCodeMe/ccm-publisher' }}
         strategy:
             matrix:
                 os: [ windows-latest, macos-latest, ubuntu-latest ]
@@ -63,13 +61,13 @@ jobs:
             - name: Get package version
               run: node -p -e '`MANIFEST_VERSION=${require("./manifest.json").version}`' >> $GITHUB_ENV
             - name: Create Release
-              uses: softprops/action-gh-release@v1
-              env:
-                 GITHUB_TOKEN: ${{ secrets.gh_token }}
+              uses: softprops/action-gh-release@v2
+              if: startsWith(github.ref, 'refs/tags/')
               with:
-                files: # 要包含在发布中的文件列表
-                    - ./style.css
-                    - ./main.js
-                    - ./manifest.json
+                files: |
+                  style.css
+                  main.js
+                  manifest.json
                 tag_name: ${{ github.ref }}
+                token: ${{ secrets.gh_token }}
                 release_name: Release ${{ env.MANIFEST_VERSION }}
