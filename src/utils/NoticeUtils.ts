@@ -18,4 +18,10 @@ function errorNotice(msg: string, durationMs?: number) {
 	notice.noticeEl.innerHTML = `<span">${msg}</span>`;
 }
 
+// function pathCheckErrorNotice(msg: string, durationMs?: number) {
+// 	const notice = new Notice("",durationMs);
+// 	notice.noticeEl.setCssProps({ "background-color": "var(--color-red)" });
+// 	notice.noticeEl.innerHTML = `<span">${msg}</span>`;
+// }
+
 export { successNotice, errorNotice, normalNotice };

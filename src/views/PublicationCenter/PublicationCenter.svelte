@@ -55,7 +55,7 @@
 			(publishStatus.publishedImages?.length || 0);
 	}
 
-	onMount(() => getPublishStatus);
+	onMount(getPublishStatus);
 
 	function insertIntoTree(tree: TreeNode, pathPair: PathPair): void {
 		let currentNode = tree;

@@ -14,13 +14,6 @@ export default class PublishStatusManager implements IPublishStatusManager {
 		this.siteManager = siteManager;
 		this.publisher = publisher;
 	}
-	getDeletedNotePaths(): Promise<string[]> {
-		throw new Error("Method not implemented.");
-	}
-	getDeletedImagesPaths(): Promise<string[]> {
-		throw new Error("Method not implemented.");
-	}
-
 	private generateDeletedContentPaths(
 		remoteNoteHashes: { [key: string]: string },
 		marked: string[],

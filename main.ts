@@ -58,7 +58,7 @@ export default class DigitalGarden extends Plugin {
 		//监听input
 		document.addEventListener(
 			"input",
-			debounce((e) => this.checkPath(e, settings), 1000, true),
+			debounce((e) => this.checkDgPathValue(e, settings), 1000, true),
 		);
 	}
 
@@ -66,13 +66,12 @@ export default class DigitalGarden extends Plugin {
 		DEFAULT_CACHE.reset().then(() => console.log("缓存已清空"));
 		const settings = this.getSettings();
 
-		document.removeEventListener(
-			"input",
-			debounce((e) => this.checkPath(e, settings), 1000, true),
+		document.removeEventListener("input", (e) =>
+			this.checkDgPathValue(e, settings),
 		);
 	}
 
-	private checkPath(event: Event, settings: DigitalGardenSettings) {
+	private checkDgPathValue(event: Event, settings: DigitalGardenSettings) {
 		const target = event.target as HTMLElement;
 
 		if (!target) {
@@ -98,11 +97,12 @@ export default class DigitalGarden extends Plugin {
 
 				// 如果属性key为dg-path
 				if (settings.pathKey === propertyKeyContent) {
-					const pathContent = target.textContent;
+					const pathContent = target.textContent?.trim();
 
-					if (pathContent && pathContent.trim()) {
-						if (pathContent.trim() === "/") {
-							target.textContent = pathContent.trim();
+					if (pathContent) {
+						if (pathContent === "/") {
+							target.textContent = pathContent;
+							target.style.border = "none";
 
 							return;
 						}
@@ -120,8 +120,10 @@ export default class DigitalGarden extends Plugin {
 							errorNotice(
 								`property: ${this.settings.pathKey} don't allow these characters: (${str}) and white-space`,
 							);
+							target.style.border = "1px solid var(--color-red)";
 						} else {
 							target.textContent = pathContent.trim();
+							target.style.border = "none";
 						}
 					}
 				}
@@ -165,7 +167,7 @@ export default class DigitalGarden extends Plugin {
 			id: "dg-mark-note-for-publish",
 			name: "Add publish flag",
 			callback: async () => {
-				this.setPublishFlagValue(true);
+				await this.setPublishFlagValue(true);
 			},
 		});
 
@@ -173,7 +175,7 @@ export default class DigitalGarden extends Plugin {
 			id: "dg-unmark-note-for-publish",
 			name: "Remove publish flag",
 			callback: async () => {
-				this.setPublishFlagValue(false);
+				await this.setPublishFlagValue(false);
 			},
 		});
 
@@ -181,7 +183,7 @@ export default class DigitalGarden extends Plugin {
 			id: "dg-mark-toggle-publish-status",
 			name: "Toggle publication status",
 			callback: async () => {
-				this.togglePublishFlag();
+				await this.togglePublishFlag();
 			},
 		});
 	}
@@ -270,7 +272,7 @@ export default class DigitalGarden extends Plugin {
 			activeFile,
 		);
 
-		engine
+		await engine
 			.set(this.settings.publishKey || FRONTMATTER_KEYS.PUBLISH, value)
 			.apply();
 	}

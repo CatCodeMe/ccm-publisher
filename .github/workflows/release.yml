@@ -1,0 +1,75 @@
+name: Build and Release
+
+on:
+    pull_request:
+        branches:
+            - main
+    push:
+        tags:
+            - "v*" # Push events to matching v*, i.e. v1.0, v20.15.10
+
+jobs:
+    build-and-test:
+        if: ${{ github.repository == 'CatCodeMe/ccm-publisher' }}
+        strategy:
+            matrix:
+                os: [windows-latest, macos-latest, ubuntu-latest]
+        runs-on: ${{ matrix.os }}
+        permissions:
+            contents: write
+        steps:
+            - uses: actions/checkout@v3
+              with:
+                  fetch-depth: 0
+
+            - name: Setup Node
+              uses: actions/setup-node@v3
+              with:
+                  node-version-file: .nvmrc
+                  cache: 'npm'
+
+            - name: "Install dependencies"
+              run: npm install
+
+            - name: "Linting with ESLint"
+              run: npm run lint
+            - name: "Check formatting with Prettier"
+              run: npm run check-formatting
+
+            - name: "type checking"
+              run: npm run typecheck
+            - name: "run test"
+              run: npm run test
+            - name: "Build"
+              run: npm run build
+
+    publish-tag:
+        if: ${{ github.repository == 'CatCodeMe/ccm-publisher' }}
+        strategy:
+            matrix:
+                os: [ windows-latest, macos-latest, ubuntu-latest ]
+        runs-on: ${{ matrix.os }}
+        permissions:
+            contents: write
+        steps:
+            - uses: actions/checkout@v3
+              with:
+                  fetch-depth: 0
+            - name: Setup Node
+              uses: actions/setup-node@v3
+              with:
+                  node-version-file: .nvmrc
+                  cache: 'npm'
+            - name: Get package version
+              run: node -p -e '`MANIFEST_VERSION=${require("./manifest.json").version}`' >> $GITHUB_ENV
+            - name: Create Release
+              uses: softprops/action-gh-release@v1
+              env:
+                 GITHUB_TOKEN: ${{ secrets.gh_token }}
+              with:
+                files: # 要包含在发布中的文件列表
+                    - ./style.css
+                    - ./main.js
+                    - ./manifest.json
+                tag_name: ${{ github.ref }}
+                release_name: Release ${{ env.MANIFEST_VERSION }}

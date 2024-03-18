@@ -15,7 +15,6 @@ describe("Compiler", () => {
 					...settings,
 				} as DigitalGardenSettings,
 				{} as MetadataCache,
-				jest.fn(),
 			);
 		};
 
