@@ -14,7 +14,8 @@ jobs:
     build-and-test:
         strategy:
             matrix:
-                os: [windows-latest, macos-latest, ubuntu-latest]
+                os: ubuntu-latest
+#                os: [windows-latest, macos-latest, ubuntu-latest]
         runs-on: ${{ matrix.os }}
         permissions:
             contents: write
@@ -47,10 +48,7 @@ jobs:
     publish-tag:
         needs: build-and-test
         if: startsWith(github.ref, 'refs/tags/')
-        strategy:
-            matrix:
-                os: [ windows-latest, macos-latest, ubuntu-latest ]
-        runs-on: ${{ matrix.os }}
+        runs-on: ubuntu-latest
         permissions:
             contents: write
         steps:
