@@ -48,7 +48,7 @@ jobs:
 
 
             - name: Get package version
-              run: node -p -e '`MANIFEST_VERSION=${require("manifest.json").version}`' >> $GITHUB_ENV
+              run: node -p -e '`MANIFEST_VERSION=${require("./manifest.json").version}`' >> $GITHUB_ENV
 
             - name: "zip build"
               run: zip  release-${{ env.MANIFEST_VERSION }}.zip  styles.css main.js manifest.json
