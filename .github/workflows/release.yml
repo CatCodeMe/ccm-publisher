@@ -9,6 +9,8 @@ on:
             - "v*" # Push events to matching v*, i.e. v1.0, v20.15.10
         branches:
             - main
+        path-ignores:
+            - README.md
 
 jobs:
     build-and-test:
@@ -45,23 +47,15 @@ jobs:
             - name: "Build"
               run: npm run build
 
-    publish-tag:
-        needs: build-and-test
-        if: startsWith(github.ref, 'refs/tags/')
-        runs-on: ubuntu-latest
-        permissions:
-            contents: write
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v4
-              with:
-                  fetch-depth: 0
-            - name: Create Release
+            - name: Get package version
+              run: node -p -e '`MANIFEST_VERSION=${require("./manifest.json").version}`' >> $GITHUB_ENV
+            - name: "Create Release"
               uses: softprops/action-gh-release@v2
+              if: startsWith(github.ref, 'refs/tags/')
               with:
                 files: |
-                  styles.css
-                  main.js
-                  manifest.json
+                    styles.css
+                    main.js
+                    manifest.json
                 token: ${{ secrets.gh_token }}
-                name: Release ${{ github.ref }}
+                name: Release ${{ env.MANIFEST_VERSION }}

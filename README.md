@@ -4,9 +4,6 @@ Publish your notes to the web, for free. In your own personal garden.
 
 ## Docs
 
-Documentation and examples can be found at [dg-docs.ole.dev](https://dg-docs.ole.dev/).
-
-![Digital-Garden-Demo](https://raw.githubusercontent.com/oleeskild/obsidian-digital-garden/main/img/dg-demo.gif)
 
 ## Features
 
@@ -136,5 +133,4 @@ This plugin is developed in my free time. If you've found it useful, it would ma
 
 Note that you in no way have to feel any pressure to do this. The plugin is completely free, and will remain free in the unforeseeable future.
 
-[<img style="float:left" src="https://cdn.ko-fi.com/cdn/kofi3.png?v=3" width="200">](https://ko-fi.com/oleeskild)
 
