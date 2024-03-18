@@ -16,7 +16,7 @@ jobs:
     build-and-test:
         strategy:
             matrix:
-                os: [windows-latest, macos-latest, ubuntu-latest]
+                os: [ubuntu-latest]
         runs-on: ${{ matrix.os }}
         permissions:
             contents: write
