@@ -14,11 +14,10 @@ on:
 
 jobs:
     build-and-test:
-#        strategy:
-#            matrix:
-#                os: [windows-latest, macos-latest, ubuntu-latest]
-#        runs-on: ${{ matrix.os }}
-        runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                os: [windows-latest, macos-latest, ubuntu-latest]
+        runs-on: ${{ matrix.os }}
         permissions:
             contents: write
         steps:
