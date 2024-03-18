@@ -53,7 +53,7 @@ jobs:
             contents: write
         steps:
             - name: Get package version
-              run: node -p -e '`MANIFEST_VERSION=${require("manifest.json").version}`' >> $GITHUB_ENV
+              run: node -p -e '`MANIFEST_VERSION=${require("./manifest.json").version}`' >> $GITHUB_ENV
             - name: Create Release
               uses: softprops/action-gh-release@v2
               with:
