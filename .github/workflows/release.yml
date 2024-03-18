@@ -61,6 +61,7 @@ jobs:
                     styles.css
                     main.js
                     manifest.json
+                    manifest-beta.json
                     release-${{ env.MANIFEST_VERSION }}.zip
                 token: ${{ secrets.gh_token }}
                 name: Release ${{ env.MANIFEST_VERSION }}
