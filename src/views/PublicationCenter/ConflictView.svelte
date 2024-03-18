@@ -1,7 +1,10 @@
 <script lang="ts">
-	import {getIcon} from "obsidian";
-	import {ConflictStatus, IPublishStatusManager,} from "../../publisher/PublishStatusManager";
-	import {onMount} from "svelte";
+	import { getIcon } from "obsidian";
+	import {
+		ConflictStatus,
+		IPublishStatusManager,
+	} from "../../publisher/PublishStatusManager";
+	import { onMount } from "svelte";
 
 	export let publishStatusManager: IPublishStatusManager;
 
