@@ -69,7 +69,7 @@
 		if (node.isRoot) {
 			rootNode = node;
 		}
-		//@ts-expect-error
+		//@ts-expect-error rootNote not be null
 		checkedCnt = countCheckedLeafNodes(rootNode);
 	}
 
