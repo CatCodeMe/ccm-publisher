@@ -5,10 +5,10 @@ on:
         branches:
             - main
     push:
-        branches:
-            - main
         tags:
             - "v*" # Push events to matching v*, i.e. v1.0, v20.15.10
+        branches:
+            - main
 
 jobs:
     build-and-test:
@@ -45,6 +45,8 @@ jobs:
               run: npm run build
 
     publish-tag:
+        needs: build-and-test
+        if: startsWith(github.ref, 'refs/tags/')
         strategy:
             matrix:
                 os: [ windows-latest, macos-latest, ubuntu-latest ]
@@ -64,7 +66,6 @@ jobs:
               run: node -p -e '`MANIFEST_VERSION=${require("./manifest.json").version}`' >> $GITHUB_ENV
             - name: Create Release
               uses: softprops/action-gh-release@v2
-              if: startsWith(github.ref, 'refs/tags/')
               with:
                 files: |
                   styles.css
