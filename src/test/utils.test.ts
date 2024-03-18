@@ -1,5 +1,6 @@
 import assert from "node:assert";
 import {
+	formatPath,
 	getGardenPathForNote,
 	getRewriteRules,
 	wrapAround,
@@ -114,6 +115,12 @@ describe("utils", () => {
 	describe("wrapAround", () => {
 		it("wraps around a positive number", () => {
 			assert.strictEqual(wrapAround(5, 2), 1);
+		});
+	});
+
+	describe("formatPath", () => {
+		it("slash is empty", () => {
+			assert.strictEqual(formatPath("/"), "");
 		});
 	});
 });

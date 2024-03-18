@@ -1,16 +1,16 @@
-import { MetadataCache, Notice, TFile, Vault } from "obsidian";
+import { MetadataCache, TFile, Vault } from "obsidian";
 import { Base64 } from "js-base64";
-import { getRewriteRules } from "../utils/utils";
 import {
 	hasPublishFlag,
 	isPublishFrontmatterValid,
 } from "../publishFile/Validator";
-import { PathRewriteRules } from "../repositoryConnection/DigitalGardenSiteManager";
 import DigitalGardenSettings from "../models/settings";
 import { Assets, GardenPageCompiler } from "../compiler/GardenPageCompiler";
 import { CompiledPublishFile, PublishFile } from "../publishFile/PublishFile";
-import Logger from "js-logger";
 import { RepositoryConnection } from "../repositoryConnection/RepositoryConnection";
+import { GitHubFile } from "../repositoryConnection/GitHubFile";
+import { errorNotice, successNotice } from "../utils/NoticeUtils";
+import { formatPath } from "../utils/utils";
 
 export interface MarkedForPublishing {
 	notes: PublishFile[];
@@ -21,14 +21,13 @@ export const IMAGE_PATH_BASE = "img/user/";
 export const NOTE_PATH_BASE = "";
 
 /**
- * Prepares files to be published and publishes them to Github
+ * Prepares files to be published and publishes them to GitHub
  */
 export default class Publisher {
 	vault: Vault;
 	metadataCache: MetadataCache;
 	compiler: GardenPageCompiler;
 	settings: DigitalGardenSettings;
-	rewriteRules: PathRewriteRules;
 
 	constructor(
 		vault: Vault,
@@ -38,20 +37,14 @@ export default class Publisher {
 		this.vault = vault;
 		this.metadataCache = metadataCache;
 		this.settings = settings;
-		this.rewriteRules = getRewriteRules(settings.pathRewriteRules);
 
-		this.compiler = new GardenPageCompiler(
-			vault,
-			settings,
-			metadataCache,
-			() => this.getFilesMarkedForPublishing(),
-		);
+		this.compiler = new GardenPageCompiler(vault, settings, metadataCache);
 	}
 
 	shouldPublish(file: TFile): boolean {
 		const frontMatter = this.metadataCache.getCache(file.path)?.frontmatter;
 
-		return hasPublishFlag(frontMatter);
+		return hasPublishFlag(frontMatter, this.settings.publishKey);
 	}
 
 	async getFilesMarkedForPublishing(): Promise<MarkedForPublishing> {
@@ -77,7 +70,7 @@ export default class Publisher {
 					images.forEach((i) => imagesToPublish.add(i));
 				}
 			} catch (e) {
-				Logger.error(e);
+				console.error(e);
 			}
 		}
 
@@ -87,42 +80,19 @@ export default class Publisher {
 		};
 	}
 
-	async deleteNote(vaultFilePath: string, sha?: string) {
-		const path = `${NOTE_PATH_BASE}${vaultFilePath}`;
-
-		return await this.delete(path, sha);
-	}
-
-	async deleteImage(vaultFilePath: string, sha?: string) {
-		const path = `${IMAGE_PATH_BASE}${vaultFilePath}`;
-
-		return await this.delete(path, sha);
-	}
-	/** If provided with sha, garden connection does not need to get it seperately! */
-	async delete(path: string, sha?: string): Promise<boolean> {
-		this.validateSettings();
-
-		const userGardenConnection = new RepositoryConnection({
-			gardenRepository: this.settings.githubRepo,
-			githubUserName: this.settings.githubUserName,
-			githubToken: this.settings.githubToken,
-		});
-
-		const deleted = await userGardenConnection.deleteFile(path, {
-			sha,
-		});
-
-		return !!deleted;
-	}
-
 	async publish(file: CompiledPublishFile): Promise<boolean> {
-		if (!isPublishFrontmatterValid(file.frontmatter)) {
+		if (
+			!isPublishFrontmatterValid(
+				file.frontmatter,
+				file.settings.publishKey,
+			)
+		) {
 			return false;
 		}
 
 		try {
 			const [text, assets] = file.compiledFile;
-			const customPathAfterUpload = file.meta.getCustomPath();
+			const customPathAfterUpload = file.meta.getCustomRemotePath();
 
 			await this.uploadText(
 				customPathAfterUpload,
@@ -134,6 +104,7 @@ export default class Publisher {
 			return true;
 		} catch (error) {
 			console.error(error);
+			errorNotice(`publish failed: ${file.getPath()}`);
 
 			return false;
 		}
@@ -154,10 +125,12 @@ export default class Publisher {
 		});
 
 		if (!remoteFileHash) {
-			const file = await userGardenConnection.getFile(path).catch(() => {
-				// file does not exist
-				Logger.info(`File ${path} does not exist, adding`);
-			});
+			const file = await userGardenConnection
+				.getFile(path, this.settings.branchName)
+				.catch(() => {
+					// file does not exist
+					console.info(`File ${path} does not exist, adding`);
+				});
 			remoteFileHash = file?.sha;
 
 			if (!remoteFileHash) {
@@ -169,13 +142,13 @@ export default class Publisher {
 			content,
 			path,
 			message,
-			sha: remoteFileHash,
+			sha: remoteFileHash, //可选参数, create or update
 		});
 	}
 
 	async uploadText(filePath: string, content: string, sha?: string) {
 		content = Base64.encode(content);
-		const path = `${NOTE_PATH_BASE}${filePath}`;
+		const path = `${this.getNotesBaseDir()}${filePath}`;
 		await this.uploadToGithub(path, content, sha);
 	}
 
@@ -187,30 +160,108 @@ export default class Publisher {
 	async uploadAssets(assets: Assets) {
 		for (let idx = 0; idx < assets.images.length; idx++) {
 			const image = assets.images[idx];
-			await this.uploadImage(image.path, image.content, image.remoteHash);
+
+			await this.uploadImage(
+				image.remotePath,
+				image.content,
+				image.remoteHash,
+			);
 		}
+	}
+
+	/**
+	 * add、update、delete notes in one commit.
+	 * @param files
+	 * @param commitMsg
+	 */
+	async batchPublish(
+		files: GitHubFile[],
+		commitMsg?: string,
+	): Promise<boolean> {
+		if (!files || files.length == 0) {
+			console.log("未选择文件");
+
+			return true;
+		}
+		this.validateSettings();
+
+		const userGardenConnection = new RepositoryConnection({
+			gardenRepository: this.settings.githubRepo,
+			githubUserName: this.settings.githubUserName,
+			githubToken: this.settings.githubToken,
+			branchName: this.settings.branchName,
+		});
+
+		try {
+			await userGardenConnection.batchPublishFiles(files, commitMsg);
+			successNotice("publish success");
+
+			return true;
+		} catch (error) {
+			console.error(error);
+			errorNotice("publish failed");
+
+			return false;
+		}
+	}
+
+	async updateImage(file: GitHubFile, commitMsg?: string) {
+		if (!file) {
+			console.log("未选择图片");
+
+			return;
+		}
+		this.validateSettings();
+
+		const userGardenConnection = new RepositoryConnection({
+			gardenRepository: this.settings.githubRepo,
+			githubUserName: this.settings.githubUserName,
+			githubToken: this.settings.githubToken,
+			branchName: this.settings.branchName,
+		});
+
+		const upload = await userGardenConnection.updateFile({
+			path: file.path,
+			sha: file.sha || "",
+			content: file.content || "",
+			branch: this.settings.branchName || "main",
+			message: commitMsg,
+		});
+
+		if (!upload) {
+			return false;
+		}
+
+		return (
+			upload.status === 200 || // update
+			upload.status === 201 // create
+		);
 	}
 
 	validateSettings() {
 		if (!this.settings.githubRepo) {
-			new Notice(
+			errorNotice(
 				"Config error: You need to define a GitHub repo in the plugin settings",
 			);
 			throw {};
 		}
 
 		if (!this.settings.githubUserName) {
-			new Notice(
+			errorNotice(
 				"Config error: You need to define a GitHub Username in the plugin settings",
 			);
 			throw {};
 		}
 
 		if (!this.settings.githubToken) {
-			new Notice(
+			errorNotice(
 				"Config error: You need to define a GitHub Token in the plugin settings",
 			);
 			throw {};
 		}
+	}
+
+	private getNotesBaseDir(): string {
+		return formatPath(this.settings.notesBaseDir);
 	}
 }

@@ -1,13 +1,11 @@
 import { Octokit } from "@octokit/core";
-import Logger from "js-logger";
-
-const logger = Logger.get("repository-connection");
-const oktokitLogger = Logger.get("octokit");
+import { GitHubFile } from "./GitHubFile";
 
 interface IOctokitterInput {
 	githubToken: string;
 	githubUserName: string;
 	gardenRepository: string;
+	branchName?: string;
 }
 
 interface IPutPayload {
@@ -21,17 +19,20 @@ interface IPutPayload {
 export class RepositoryConnection {
 	private githubUserName: string;
 	private gardenRepository: string;
+	private branchName?: string;
 	octokit: Octokit;
 
 	constructor({
 		gardenRepository,
 		githubToken,
 		githubUserName,
+		branchName,
 	}: IOctokitterInput) {
 		this.gardenRepository = gardenRepository;
 		this.githubUserName = githubUserName;
+		this.branchName = branchName;
 
-		this.octokit = new Octokit({ auth: githubToken, log: oktokitLogger });
+		this.octokit = new Octokit({ auth: githubToken });
 	}
 
 	getRepositoryName() {
@@ -42,6 +43,10 @@ export class RepositoryConnection {
 		return {
 			owner: this.githubUserName,
 			repo: this.gardenRepository,
+			headers: {
+				"X-GitHub-Api-Version": "2022-11-28",
+				Accept: "application/vnd.github+json",
+			},
 		};
 	}
 
@@ -71,8 +76,8 @@ export class RepositoryConnection {
 		}
 	}
 
-	async getFile(path: string, branch?: string) {
-		logger.info(
+	async getFile(path: string, branch: string) {
+		console.log(
 			`Getting file ${path} from repository ${this.getRepositoryName()}`,
 		);
 
@@ -100,80 +105,6 @@ export class RepositoryConnection {
 		}
 	}
 
-	async deleteFile(
-		path: string,
-		{ branch, sha }: { branch?: string; sha?: string },
-	) {
-		try {
-			sha ??= await this.getFile(path, branch).then((file) => file?.sha);
-
-			if (!sha) {
-				console.error(
-					`cannot find file ${path} on github, not removing`,
-				);
-
-				return false;
-			}
-
-			const payload = {
-				...this.getBasePayload(),
-				path,
-				message: `Delete content ${path}`,
-				sha,
-				branch,
-			};
-
-			const result = await this.octokit.request(
-				"DELETE /repos/{owner}/{repo}/contents/{path}",
-				payload,
-			);
-
-			Logger.info(
-				`Deleted file ${path} from repository ${this.getRepositoryName()}`,
-			);
-
-			return result;
-		} catch (error) {
-			logger.error(error);
-
-			return false;
-		}
-	}
-
-	async getLatestRelease() {
-		try {
-			const release = await this.octokit.request(
-				"GET /repos/{owner}/{repo}/releases/latest",
-				this.getBasePayload(),
-			);
-
-			if (!release || !release.data) {
-				logger.error("Could not get latest release");
-			}
-
-			return release.data;
-		} catch (error) {
-			logger.error("Could not get latest release", error);
-		}
-	}
-
-	async getLatestCommit(): Promise<{ sha: string } | undefined> {
-		try {
-			const latestCommit = await this.octokit.request(
-				"GET /repos/{owner}/{repo}/commits/HEAD",
-				this.getBasePayload(),
-			);
-
-			if (!latestCommit || !latestCommit.data) {
-				logger.error("Could not get latest commit");
-			}
-
-			return latestCommit.data;
-		} catch (error) {
-			logger.error("Could not get latest commit", error);
-		}
-	}
-
 	async updateFile({ path, sha, content, branch, message }: IPutPayload) {
 		const payload = {
 			...this.getBasePayload(),
@@ -190,34 +121,49 @@ export class RepositoryConnection {
 				payload,
 			);
 		} catch (error) {
-			logger.error(error);
+			console.error(error);
 		}
 	}
 
-	async getRepositoryInfo() {
-		const repoInfo = await this.octokit
-			.request("GET /repos/{owner}/{repo}", {
+	async batchPublishFiles(files: GitHubFile[], commitMsg?: string) {
+		const baseTree = await this.getContent(this.branchName || "HEAD");
+
+		const baseTreeSha = baseTree?.sha;
+
+		const uploadResp = await this.octokit.request(
+			"POST /repos/{owner}/{repo}/git/trees",
+			{
 				...this.getBasePayload(),
-			})
-			.catch((error) => {
-				logger.error(error);
+				base_tree: baseTreeSha,
+				tree: files,
+			},
+		);
+		const uploadSha = uploadResp.data.sha;
 
-				logger.warn(
-					`Could not get repository info for ${this.getRepositoryName()}`,
-				);
-
-				return undefined;
-			});
-
-		return repoInfo?.data;
-	}
-
-	async createBranch(branchName: string, sha: string) {
-		await this.octokit.request("POST /repos/{owner}/{repo}/git/refs", {
+		const commitPayLoad = {
 			...this.getBasePayload(),
-			ref: `refs/heads/${branchName}`,
-			sha,
-		});
+			message: commitMsg || "push files",
+			parents: [baseTreeSha],
+			tree: uploadSha,
+		};
+
+		const commitResp = await this.octokit.request(
+			"POST https://api.github.com/repos/{owner}/{repo}/git/commits",
+			commitPayLoad,
+		);
+
+		const commitSha = commitResp.data.sha;
+
+		const updateRefPayLoad = {
+			...this.getBasePayload(),
+			sha: commitSha,
+			force: true,
+		};
+
+		await this.octokit.request(
+			`PATCH https://api.github.com/repos/{owner}/{repo}/git/refs/heads/${this.branchName || "main"}`,
+			updateRefPayLoad,
+		);
 	}
 }
 

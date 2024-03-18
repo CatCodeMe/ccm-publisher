@@ -69,6 +69,7 @@
 		if (node.isRoot) {
 			rootNode = node;
 		}
+		//@ts-expect-error
 		checkedCnt = countCheckedLeafNodes(rootNode);
 	}
 
@@ -127,7 +128,11 @@
 		on:toggle={rebuildTree}
 		on:showDiff={(e) =>
 			showDiff(
-				new PathPair(e.detail.node.path, e.detail.node.remotePath),
+				new PathPair(
+					e.detail.node.path, //todo 应该用localPath ???
+					e.detail.node.remotePath,
+					e.detail.node.isImg,
+				),
 			)}
 	/>
 </div>

@@ -79,16 +79,11 @@
 							on:click={toggleCheck}
 						/>
 					{/if}
-					<span on:click={toggleExpansion}>{tree.name}</span>
+					<span class="nodeName" on:click={toggleExpansion}
+						>{tree.name}</span
+					>
 				{:else}
 					{#if !readOnly}
-						{#if tree.name.toLowerCase().includes("unpublished")}
-							⬆️
-						{:else if tree.name.toLowerCase().includes("changed")}
-							🔂
-						{:else if tree.name.toLowerCase().includes("delete")}
-							❌
-						{/if}
 						<input
 							type="checkbox"
 							data-label={tree.name}
@@ -98,21 +93,18 @@
 							}}
 							on:click={toggleCheck}
 						/>
-					{:else}
-						✅
 					{/if}
 
 					<span class="root-header" on:click={toggleExpansion}>
-						{tree.name}
-						<!--{#if tree.name.toLowerCase().includes("unpublished")}-->
-						<!--	<span class="root-header-name">⬆️{tree.name}</span>-->
-						<!--{:else if tree.name.toLowerCase().includes("changed")}-->
-						<!--	<span class="root-header-name">🔂 {tree.name}</span>-->
-						<!--{:else if tree.name.toLowerCase().includes("delete")}-->
-						<!--	<span class="root-header-name">❌ {tree.name}</span>-->
-						<!--{:else}-->
-						<!--	<span class="root-header-name">✅ {tree.name}</span>-->
-						<!--{/if}-->
+						{#if tree.name.toLowerCase().includes("unpublished")}
+							<span class="root-header-name">⬆️ {tree.name}</span>
+						{:else if tree.name.toLowerCase().includes("changed")}
+							<span class="root-header-name">🔂 {tree.name}</span>
+						{:else if tree.name.toLowerCase().includes("delete")}
+							<span class="root-header-name">❌ {tree.name}</span>
+						{:else}
+							<span class="root-header-name">✅ {tree.name}</span>
+						{/if}
 					</span>
 				{/if}
 			</span>
@@ -131,7 +123,11 @@
 			<!-- svelte-ignore a11y-no-static-element-interactions -->
 			<span class="node-line">
 				<span class="no-arrow" />
-				<Icon name="file" />
+				{#if tree.isImg}
+					<Icon name="image" />
+				{:else}
+					<Icon name="file" />
+				{/if}
 				{#if !readOnly}
 					<input
 						type="checkbox"
@@ -144,9 +140,11 @@
 					/>
 				{/if}
 				<!-- svelte-ignore a11y-click-events-have-key-events -->
-				<span on:click={toggleExpansion}>{tree.name}</span>
+				<span class="nodeName" on:click={toggleExpansion}
+					>{tree.name}</span
+				>
 				<!-- svelte-ignore a11y-click-events-have-key-events -->
-				{#if enableShowDiff}
+				{#if enableShowDiff && !tree.isImg}
 					<span title="Show changes" class="diff" on:click={showDiff}>
 						<Icon name="file-diff" />
 					</span>
@@ -174,12 +172,7 @@
 	.arrow {
 		cursor: pointer;
 		display: inline-block;
-		/* transition: transform 200ms; */
-	}
-	.arrowDown {
-		transform: rotate(90deg);
-		/*top: -5px;*/
-		/*position: relative;*/
+		transition: transform 200ms;
 	}
 	ul.isRoot {
 		padding-left: 0;
@@ -214,21 +207,31 @@
 
 	.diff {
 		cursor: pointer;
-		margin-left: 4px;
-		position: relative;
-		top: 3px;
+		margin-left: 3px;
+		color: dodgerblue;
+		/*position: relative;*/
+		/*top: 2px;*/
 	}
 
-	/*.root-header-name {*/
-	/*	margin-left: 5px;*/
-	/*}*/
-
 	.node-line {
-		& > .arrow:not(.arrowDown),
-		& > span + svg,
-		& > svg + input[type="checkbox"],
-		& > input[type="checkbox"] + span {
-			vertical-align: middle;
+		vertical-align: middle;
+
+		& .arrowDown {
+			transform: rotate(90deg);
+			position: relative;
+			transition: transform 200ms;
+			bottom: 4px;
+			right: 3px;
 		}
+
+		& svg[class*="lucide-folder"] {
+			position: relative;
+			top: 1px;
+		}
+	}
+
+	.nodeName {
+		position: relative;
+		bottom: 3px;
 	}
 </style>

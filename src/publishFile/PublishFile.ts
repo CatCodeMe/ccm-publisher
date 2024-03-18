@@ -62,17 +62,8 @@ export class PublishFile {
 		);
 	}
 
-	// TODO: This doesn't work yet, but file should be able to tell it's type
-	getType(): "excalidraw" | "markdown" {
-		if (this.file.name.endsWith(".excalidraw")) {
-			return "excalidraw";
-		}
-
-		return "markdown";
-	}
-
 	shouldPublish(): boolean {
-		return hasPublishFlag(this.frontmatter);
+		return hasPublishFlag(this.frontmatter, this.settings.publishKey);
 	}
 
 	async getImageLinks() {

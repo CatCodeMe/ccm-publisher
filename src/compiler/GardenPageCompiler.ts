@@ -2,15 +2,15 @@ import {
 	arrayBufferToBase64,
 	getLinkpath,
 	MetadataCache,
-	Notice,
 	TFile,
 	Vault,
 } from "obsidian";
 import DigitalGardenSettings from "../models/settings";
-import { PathRewriteRule } from "../repositoryConnection/DigitalGardenSiteManager";
-import Publisher from "../publisher/Publisher";
-import { fixSvgForXmlSerializer, getRewriteRules } from "../utils/utils";
-import { ExcalidrawCompiler } from "./ExcalidrawCompiler";
+import {
+	fixSvgForXmlSerializer,
+	formatPath,
+	localImgHashFromBuffer,
+} from "../utils/utils";
 import { fixMarkdownHeaderSyntax } from "../utils/markdown";
 import {
 	CODE_FENCE_REGEX,
@@ -19,15 +19,17 @@ import {
 	FRONTMATTER_REGEX,
 	TRANSCLUDED_SVG_REGEX,
 } from "../utils/regexes";
-import Logger from "js-logger";
 import { DataviewCompiler } from "./DataviewCompiler";
 import { PublishFile } from "../publishFile/PublishFile";
+import { DEFAULT_CACHE } from "../ui/suggest/constants";
 
 export interface Asset {
-	path: string;
 	content: string;
+	remotePath: string;
 	// not set yet
 	remoteHash?: string;
+	localHash?: string;
+	localPath: string;
 }
 export interface Assets {
 	images: Array<Asset>;
@@ -44,24 +46,16 @@ export type TCompilerStep = (
 export class GardenPageCompiler {
 	private readonly vault: Vault;
 	private readonly settings: DigitalGardenSettings;
-	private excalidrawCompiler: ExcalidrawCompiler;
 	private metadataCache: MetadataCache;
-	private readonly getFilesMarkedForPublishing: Publisher["getFilesMarkedForPublishing"];
-
-	private rewriteRules: PathRewriteRule[];
 
 	constructor(
 		vault: Vault,
 		settings: DigitalGardenSettings,
 		metadataCache: MetadataCache,
-		getFilesMarkedForPublishing: Publisher["getFilesMarkedForPublishing"],
 	) {
 		this.vault = vault;
 		this.settings = settings;
 		this.metadataCache = metadataCache;
-		this.getFilesMarkedForPublishing = getFilesMarkedForPublishing;
-		this.excalidrawCompiler = new ExcalidrawCompiler(vault);
-		this.rewriteRules = getRewriteRules(this.settings.pathRewriteRules);
 	}
 
 	runCompilerSteps =
@@ -78,28 +72,17 @@ export class GardenPageCompiler {
 		};
 
 	async generateMarkdown(file: PublishFile): Promise<TCompiledFile> {
-		const assets: Assets = { images: [] };
-
 		const vaultFileText = await file.cachedRead();
-
-		if (file.file.name.endsWith(".excalidraw.md")) {
-			return [
-				await this.excalidrawCompiler.compileMarkdown({
-					includeExcaliDrawJs: true,
-				})(file)(vaultFileText),
-				assets,
-			];
-		}
 
 		// ORDER MATTERS!
 		const COMPILE_STEPS: TCompilerStep[] = [
 			this.convertFrontMatter,
-			this.convertCustomFilters,
 			// this.createBlockIDs,
 			// this.createTranscludedText(0),
 			this.convertDataViews,
 			this.convertLinksToFullPath,
 			this.removeObsidianComments,
+			//todo 待测试svg图片, 为什么是单独处理的
 			this.createSvgEmbeds,
 		];
 
@@ -112,46 +95,6 @@ export class GardenPageCompiler {
 
 		return [text, { images }];
 	}
-
-	convertCustomFilters: TCompilerStep = () => (text) => {
-		for (const filter of this.settings.customFilters) {
-			try {
-				text = text.replace(
-					RegExp(filter.pattern, filter.flags),
-					filter.replace,
-				);
-			} catch (e) {
-				Logger.error(
-					`Invalid regex: ${filter.pattern} ${filter.flags}`,
-				);
-
-				// TODO: validate in settings
-				new Notice(
-					`Your custom filters contains an invalid regex: ${filter.pattern}. Skipping it.`,
-				);
-			}
-		}
-
-		return text;
-	};
-
-	createBlockIDs: TCompilerStep = () => (text: string) => {
-		// const block_pattern = / \^([\w\d-]+)/g;
-		// const complex_block_pattern = /\n\^([\w\d-]+)\n/g;
-
-		// text = text.replace(
-		// 	complex_block_pattern,
-		// 	(_match: string, $1: string) => {
-		// 		return `{ #${$1}}\n\n`;
-		// 	},
-		// );
-		//
-		// text = text.replace(block_pattern, (match: string, $1: string) => {
-		// 	return `\n{ #${$1}}\n`;
-		// });
-
-		return text;
-	};
 
 	removeObsidianComments: TCompilerStep = () => (text) => {
 		const obsidianCommentsRegex = /%%.+?%%/gms;
@@ -188,24 +131,10 @@ export class GardenPageCompiler {
 		return await dataviewCompiler.compile(file)(text);
 	};
 
-	private stripAwayCodeFencesAndFrontmatter: TCompilerStep = () => (text) => {
-		let textToBeProcessed = text;
-		textToBeProcessed = textToBeProcessed.replace(EXCALIDRAW_REGEX, "");
-		textToBeProcessed = textToBeProcessed.replace(CODEBLOCK_REGEX, "");
-		textToBeProcessed = textToBeProcessed.replace(CODE_FENCE_REGEX, "");
-
-		textToBeProcessed = textToBeProcessed.replace(FRONTMATTER_REGEX, "");
-
-		return textToBeProcessed;
-	};
-
 	convertLinksToFullPath: TCompilerStep = (file) => async (text) => {
 		let convertedText = text;
 
-		// const textToBeProcessed =
-		// 	await this.stripAwayCodeFencesAndFrontmatter(file)(text);
-
-		const linkedFileRegex = /\[\[(.+?)\]\]/g;
+		const linkedFileRegex = /\[\[(.+?)]]/g;
 		const linkedFileMatches = convertedText.match(linkedFileRegex);
 
 		if (linkedFileMatches) {
@@ -266,7 +195,7 @@ export class GardenPageCompiler {
 					if (linkedFile.extension === "md") {
 						const remotePath = publishLinkedFile
 							.getFileMetadataManager()
-							.getCustomPath();
+							.getCustomRemotePath();
 
 						const replacePath = remotePath.substring(
 							0,
@@ -287,119 +216,12 @@ export class GardenPageCompiler {
 					}
 				} catch (e) {
 					console.log(e);
-					continue;
 				}
 			}
 		}
 
 		return convertedText;
 	};
-
-	createTranscludedText =
-		(currentDepth: number): TCompilerStep =>
-		(file) =>
-		async (text) => {
-			if (currentDepth >= 1) {
-				return text;
-			}
-
-			const { notes: publishedFiles } =
-				await this.getFilesMarkedForPublishing();
-
-			let transcludedText = text;
-
-			const transcludedRegex = /!\[\[(.+?)\]\]/g;
-			const transclusionMatches = text.match(transcludedRegex);
-
-			for (const transclusionMatch of transclusionMatches ?? []) {
-				try {
-					const [transclusionFileName] = transclusionMatch
-						.substring(
-							transclusionMatch.indexOf("[") + 2,
-							transclusionMatch.indexOf("]"),
-						)
-						.split("|");
-
-					const transclusionFilePath =
-						getLinkpath(transclusionFileName);
-
-					const linkedFile = this.metadataCache.getFirstLinkpathDest(
-						transclusionFilePath,
-						file.getPath(),
-					);
-
-					if (!linkedFile) {
-						console.error(
-							`can't find transcluded file ${transclusionFilePath}`,
-						);
-						continue;
-					}
-
-					const publishLinkedFile = new PublishFile({
-						file: linkedFile,
-						compiler: this,
-						metadataCache: this.metadataCache,
-						vault: this.vault,
-						settings: this.settings,
-					});
-
-					if (linkedFile.extension === "md") {
-						let fileText = await publishLinkedFile.cachedRead();
-
-						// const metadata = publishLinkedFile.getMetadata();
-						const fileMetadataManager =
-							publishLinkedFile.getFileMetadataManager();
-
-						if (transclusionFileName.includes("#")) {
-							const transclusionFilePath =
-								transclusionFileName.split("#")[0];
-
-							fileText = fileText.replace(
-								"[[" + transclusionFilePath,
-								"[[" + fileMetadataManager.getCustomPath,
-							);
-						}
-
-						const publishedFilesContainsLinkedFile =
-							publishedFiles.find(
-								(f) => f.getPath() == linkedFile.path,
-							);
-
-						if (publishedFilesContainsLinkedFile) {
-							// const permalink =
-							// 	metadata?.frontmatter &&
-							// 	metadata.frontmatter["dg-permalink"];
-							// const gardenPath = permalink
-							// 	? sanitizePermalink(permalink)
-							// 	: `/${generateUrlPath(
-							// 			getGardenPathForNote(
-							// 				linkedFile.path,
-							// 				this.rewriteRules,
-							// 			),
-							// 	  )}`;
-							// embedded_link = `<a class="markdown-embed-link" href="${gardenPath}${sectionID}" aria-label="Open link"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon lucide-link"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></a>`;
-						}
-
-						if (fileText.match(transcludedRegex)) {
-							fileText = await this.createTranscludedText(
-								currentDepth + 1,
-							)(publishLinkedFile)(fileText);
-						}
-
-						//This should be recursive up to a certain depth
-						transcludedText = transcludedText.replace(
-							transclusionMatch,
-							fileText,
-						);
-					}
-				} catch (error) {
-					console.error(error);
-					continue;
-				}
-			}
-
-			return transcludedText;
-		};
 
 	createSvgEmbeds: TCompilerStep = (file) => async (text) => {
 		function setWidth(svgText: string, size: string): string {
@@ -524,7 +346,10 @@ export class GardenPageCompiler {
 
 					assets.push(linkedFile.path);
 				} catch (e) {
-					continue;
+					console.error(
+						`extractImageLinks, transcludedImageMatches error:${transcludedImageMatches[i]}`,
+						e,
+					);
 				}
 			}
 		}
@@ -558,8 +383,11 @@ export class GardenPageCompiler {
 					}
 
 					assets.push(linkedFile.path);
-				} catch {
-					continue;
+				} catch (e) {
+					console.error(
+						`extractImageLinks, imageMatches error:${imageMatches[i]}`,
+						e,
+					);
 				}
 			}
 		}
@@ -636,10 +464,11 @@ export class GardenPageCompiler {
 						if (!linkedFile) {
 							continue;
 						}
-						const image = await this.vault.readBinary(linkedFile);
-						const imageBase64 = arrayBufferToBase64(image);
 
-						const cmsImgPath = `img/user/${linkedFile.path}`;
+						const imgInfo =
+							await this.buildLocalImgInfo(linkedFile);
+
+						const remoteImgPath = `${this.getImgBaseDir()}${linkedFile.path}`;
 						let name = "";
 
 						if (metaData && size) {
@@ -653,17 +482,25 @@ export class GardenPageCompiler {
 						}
 
 						const imageMarkdown = `![${name}](${encodeURI(
-							cmsImgPath,
+							remoteImgPath,
 						)})`;
 
-						assets.push({ path: cmsImgPath, content: imageBase64 });
+						assets.push({
+							remotePath: remoteImgPath,
+							content: imgInfo.content,
+							localHash: imgInfo.localHash,
+							localPath: linkedFile.path,
+						});
 
 						imageText = imageText.replace(
 							imageMatch,
 							imageMarkdown,
 						);
 					} catch (e) {
-						continue;
+						console.error(
+							`convertImageLinks, transcludedImageMatches error: ${transcludedImageMatches[i]}`,
+							e,
+						);
 					}
 				}
 			}
@@ -709,18 +546,28 @@ export class GardenPageCompiler {
 						if (!linkedFile) {
 							continue;
 						}
-						const image = await this.vault.readBinary(linkedFile);
-						const imageBase64 = arrayBufferToBase64(image);
-						const cmsImgPath = `img/user/${linkedFile.path}`;
-						const imageMarkdown = `![${imageName}](${cmsImgPath})`;
-						assets.push({ path: cmsImgPath, content: imageBase64 });
+
+						const imgInfo =
+							await this.buildLocalImgInfo(linkedFile);
+						const remoteImgPath = `${this.getImgBaseDir()}${linkedFile.path}`;
+						const imageMarkdown = `![${imageName}](${remoteImgPath})`;
+
+						assets.push({
+							remotePath: remoteImgPath,
+							content: imgInfo.content,
+							localHash: imgInfo.localHash,
+							localPath: linkedFile.path,
+						});
 
 						imageText = imageText.replace(
 							imageMatch,
 							imageMarkdown,
 						);
-					} catch {
-						continue;
+					} catch (e) {
+						console.error(
+							`convertImageLinks, imageMatches error: ${imageMatches[i]}`,
+							e,
+						);
 					}
 				}
 			}
@@ -746,5 +593,28 @@ export class GardenPageCompiler {
 		}
 
 		return fixMarkdownHeaderSyntax(headerName);
+	}
+
+	private async buildLocalImgInfo(linkedFile: TFile): Promise<Asset> {
+		return await DEFAULT_CACHE.wrap(
+			linkedFile.path,
+			async () => {
+				const image = await this.vault.readBinary(linkedFile);
+				const imageBase64 = arrayBufferToBase64(image);
+				const localHash = localImgHashFromBuffer(Buffer.from(image));
+
+				return {
+					remotePath: `${this.getImgBaseDir()}${linkedFile.path}`,
+					localPath: linkedFile.path,
+					content: imageBase64,
+					localHash: localHash,
+				};
+			},
+			600 * 1000, //ms
+		);
+	}
+
+	private getImgBaseDir(): string {
+		return formatPath(this.settings.imgBaseDir);
 	}
 }

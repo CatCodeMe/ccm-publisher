@@ -1,4 +1,4 @@
-import { type App, Modal, getIcon, Vault, TFile } from "obsidian";
+import { type App, getIcon, Modal, TFile, Vault } from "obsidian";
 import DigitalGardenSettings from "../../models/settings";
 import { PublishFile } from "../../publishFile/PublishFile";
 import DigitalGardenSiteManager from "../../repositoryConnection/DigitalGardenSiteManager";
@@ -8,6 +8,7 @@ import PublicationCenterSvelte from "./PublicationCenter.svelte";
 import DiffView from "./DiffView.svelte";
 import * as Diff from "diff";
 import PathPair from "../../models/PathPair";
+import { DEFAULT_CACHE } from "../../ui/suggest/constants";
 
 export class PublicationCenter {
 	modal: Modal;
@@ -66,7 +67,7 @@ export class PublicationCenter {
 				settings: this.settings,
 			});
 
-			if (localFile instanceof TFile) {
+			if (localFile instanceof TFile && !pathPair.isImg) {
 				const [localContent, _] =
 					await this.publisher.compiler.generateMarkdown(
 						localPublishFile,
@@ -106,6 +107,10 @@ export class PublicationCenter {
 	open = () => {
 		this.modal.onClose = () => {
 			this.publicationCenterUi.$destroy();
+
+			DEFAULT_CACHE.reset().then(() => {
+				console.log("关闭弹窗, 清空缓存");
+			});
 		};
 
 		this.modal.onOpen = () => {

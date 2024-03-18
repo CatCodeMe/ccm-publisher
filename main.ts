@@ -1,75 +1,34 @@
-import { Notice, Platform, Plugin, Workspace } from "obsidian";
+import { debounce, Plugin, TFile, Workspace } from "obsidian";
 import Publisher from "./src/publisher/Publisher";
 import DigitalGardenSettings from "./src/models/settings";
-import { PublishStatusBar } from "./src/views/PublishStatusBar";
 import { PublicationCenter } from "src/views/PublicationCenter/PublicationCenter";
 import PublishStatusManager from "src/publisher/PublishStatusManager";
 import ObsidianFrontMatterEngine from "src/publishFile/ObsidianFrontMatterEngine";
 import DigitalGardenSiteManager from "src/repositoryConnection/DigitalGardenSiteManager";
 import { DigitalGardenSettingTab } from "./src/views/DigitalGardenSettingTab";
-import Logger from "js-logger";
 import { PublishFile } from "./src/publishFile/PublishFile";
 import { FRONTMATTER_KEYS } from "./src/publishFile/FileMetaDataManager";
+import { DG_PATH_VALUE_REGEX } from "./src/utils/regexes";
+import { DEFAULT_CACHE } from "./src/ui/suggest/constants";
+import {
+	errorNotice,
+	normalNotice,
+	successNotice,
+} from "./src/utils/NoticeUtils";
 
 const DEFAULT_SETTINGS: DigitalGardenSettings = {
 	githubRepo: "",
 	githubToken: "",
 	githubUserName: "",
-	gardenBaseUrl: "",
-	prHistory: [],
-	baseTheme: "dark",
-	theme: '{"name": "default", "modes": ["dark"]}',
-	faviconPath: "",
-	useFullResolutionImages: false,
 	noteSettingsIsInitialized: false,
-	siteName: "Digital Garden",
-	mainLanguage: "en",
-	slugifyEnabled: false,
-	// Note Icon Related Settings
-	noteIconKey: "dg-note-icon",
-	defaultNoteIcon: "",
-	showNoteIconOnTitle: false,
-	showNoteIconInFileTree: false,
-	showNoteIconOnInternalLink: false,
-	showNoteIconOnBackLink: false,
-
-	// Timestamp related settings
-	showCreatedTimestamp: false,
-	createdTimestampKey: "",
-	showUpdatedTimestamp: false,
-	updatedTimestampKey: "",
-	timestampFormat: "MMM dd, yyyy h:mm a",
-
-	styleSettingsCss: "",
-	styleSettingsBodyClasses: "",
-	pathRewriteRules: "",
-	customFilters: [],
-
-	contentClassesKey: "dg-content-classes",
-
-	defaultNoteSettings: {
-		dgHomeLink: true,
-		dgPassFrontmatter: false,
-		dgShowBacklinks: false,
-		dgShowLocalGraph: false,
-		dgShowInlineTitle: false,
-		dgShowFileTree: false,
-		dgEnableSearch: false,
-		dgShowToc: false,
-		dgLinkPreview: false,
-		dgShowTags: false,
-	},
-	logLevel: undefined,
 	ignoredDirOrFiles: ".gitignore, .gitkeep, .github",
+	imgBaseDir: "/img/user",
+	notesBaseDir: "/",
+	branchName: "main",
+	publishKey: "dg-publish",
+	pathKey: "dg-path",
 };
 
-Logger.useDefaults({
-	defaultLevel: Logger.WARN,
-	formatter: function (messages, _context) {
-		messages.unshift(new Date().toUTCString());
-		messages.unshift("DG: ");
-	},
-});
 export default class DigitalGarden extends Plugin {
 	settings!: DigitalGardenSettings;
 	appVersion!: string;
@@ -79,20 +38,14 @@ export default class DigitalGarden extends Plugin {
 	async onload() {
 		this.appVersion = this.manifest.version;
 
-		console.log("Initializing DigitalGarden plugin v" + this.appVersion);
+		console.log("Initializing Quartz Publisher plugin v" + this.appVersion);
 		await this.loadSettings();
 
-		this.settings.logLevel && Logger.setLevel(this.settings.logLevel);
-
-		Logger.info(
-			"Digital garden log level set to " + Logger.getLevel().name,
-		);
 		this.addSettingTab(new DigitalGardenSettingTab(this.app, this));
 
 		await this.addCommands();
 
 		this.addRibbonIcon(
-			// "digital-garden-icon",
 			"arrow-up-right-square",
 			"Quartz Publisher",
 			async () => {
@@ -100,98 +53,81 @@ export default class DigitalGarden extends Plugin {
 			},
 		);
 
-		// 监听document上的input事件，通过事件委托处理.metadata-property-key的内容变化
-		document.addEventListener("input", function (event) {
-			const target = event.target as HTMLElement;
+		const settings = this.getSettings();
 
-			if (!target) {
-				console.log("没有target");
+		//监听input
+		document.addEventListener(
+			"input",
+			debounce((e) => this.checkPath(e, settings), 1000, true),
+		);
+	}
 
-				return;
-			}
+	onunload() {
+		DEFAULT_CACHE.reset().then(() => console.log("缓存已清空"));
+		const settings = this.getSettings();
 
-			if (target.classList.contains("metadata-input-longtext")) {
-				// 检查触发事件的元素是否为.metadata-property-key或其子元素
-				const metadataKeyElement = target?.parentElement
-					?.previousSibling as HTMLElement;
+		document.removeEventListener(
+			"input",
+			debounce((e) => this.checkPath(e, settings), 1000, true),
+		);
+	}
 
-				if (
-					metadataKeyElement &&
-					metadataKeyElement.classList.contains(
-						"metadata-property-key",
-					)
-				) {
-					const propertyKeyEle = metadataKeyElement.querySelector(
-						".metadata-property-key-input",
-					) as HTMLInputElement;
+	private checkPath(event: Event, settings: DigitalGardenSettings) {
+		const target = event.target as HTMLElement;
 
-					const propertyKeyContent = propertyKeyEle.value;
+		if (!target) {
+			console.log("没有target");
 
-					// 如果内容为dg-path
-					if ("dg-path" === propertyKeyContent) {
-						const pathContent = target.textContent;
+			return;
+		}
 
-						if (pathContent) {
-							// const match = /[[\]/#|^]/;
-							const regex =
-								/^(?!\/)(?!.*\/{2,})(?!.*[#^|[\]\\\\])(?=.*\/?$)[^[\]\\\\]*(\/[^[\]\\\\]*)?$/gm;
+		if (target.classList.contains("metadata-input-longtext")) {
+			// 检查触发事件的元素是否为.metadata-property-key或其子元素
+			const metadataKeyElement = target?.parentElement
+				?.previousSibling as HTMLElement;
 
-							// 是否符合预期格式
-							//不能以特殊字符开头
-							//不包含连续的/
-							//不包含特殊字符
-							//结尾至多一个/, 可能没有
-							if (!regex.test(pathContent)) {
-								// 如果包含特殊字符，显示提示信息
-								const str = "\\/:#^|[]";
+			if (
+				metadataKeyElement &&
+				metadataKeyElement.classList.contains("metadata-property-key")
+			) {
+				const propertyKeyEle = metadataKeyElement.querySelector(
+					".metadata-property-key-input",
+				) as HTMLInputElement;
 
-								new Notice(
-									`\`dg-path\`属性不允许包含特殊符号(${str})，请修改`,
-								);
-							}
+				const propertyKeyContent = propertyKeyEle.value;
+
+				// 如果属性key为dg-path
+				if (settings.pathKey === propertyKeyContent) {
+					const pathContent = target.textContent;
+
+					if (pathContent && pathContent.trim()) {
+						if (pathContent.trim() === "/") {
+							target.textContent = pathContent.trim();
+
+							return;
+						}
+
+						// /^\/(?!\/)(?!.*\/{2,})(?!.*[#^|:[\]\\])(?:[^/\s]|(?<!\/)\/(?![/\s]))*(\/[^/\s]*)?\/?$/;
+						//不能以特殊字符开头,必须是/开头
+						//不允许连续的/
+						//不允许任何位置出现特殊字符#^|:[]\
+						//不允许任何位置出现空格
+						//结尾至多一个/, 可能没有
+						if (!DG_PATH_VALUE_REGEX.test(pathContent)) {
+							// 如果包含特殊字符，显示提示信息
+							const str = "#^|:[]\\";
+
+							errorNotice(
+								`property: ${this.settings.pathKey} don't allow these characters: (${str}) and white-space`,
+							);
+						} else {
+							target.textContent = pathContent.trim();
 						}
 					}
 				}
 			}
-		});
-
-		// 监听.metadata-property-key的内容变化
-		// document
-		// 	.querySelectorAll(".metadata-property-key")
-		// 	.forEach(function (element) {
-		// 		element.addEventListener("input", function () {
-		// 			// 获取.metadata-property-key的内容
-		// 			// @ts-ignore
-		// 			const keyContent = element.textContent?.trim();
-		//
-		// 			// 如果内容为dg-path
-		// 			if (keyContent === "dg-path") {
-		// 				const valueContent =
-		// 					element?.nextElementSibling?.querySelector(
-		// 						".metadata-input-longtext",
-		// 					)?.textContent;
-		//
-		// 				if (!valueContent) {
-		// 					return;
-		// 				}
-		//
-		// 				const match = `/[\\[\\]#^\\\\/]/`;
-		//
-		// 				// 进行特殊字符的校验
-		// 				if (valueContent.match(match)) {
-		// 					// 如果包含特殊字符，显示提示信息
-		// 					console.log("有异常");
-		// 				} else {
-		// 					// 如果不包含特殊字符，隐藏提示信息
-		// 					console.log("无异常");
-		// 				}
-		// 			}
-		// 		});
-		// 	});
+		}
 	}
-
-	onunload() {}
-
 	async loadSettings() {
 		this.settings = Object.assign(
 			{},
@@ -204,226 +140,18 @@ export default class DigitalGarden extends Plugin {
 		await this.saveData(this.settings);
 	}
 
+	getSettings() {
+		return this.settings;
+	}
+
 	async addCommands() {
-		this.addCommand({
-			id: "quick-publish-and-share-note",
-			name: "Quick Publish And Share Note",
-			callback: async () => {
-				new Notice("Adding publish flag to note and publishing it.");
-				await this.setPublishFlagValue(true);
-				const activeFile = this.app.workspace.getActiveFile();
-
-				const event = this.app.metadataCache.on(
-					"changed",
-					async (file, _data, _cache) => {
-						if (file.path === activeFile?.path) {
-							const successfullyPublished =
-								await this.publishSingleNote();
-
-							if (successfullyPublished) {
-								await this.copyGardenUrlToClipboard();
-							}
-							this.app.metadataCache.offref(event);
-						}
-					},
-				);
-
-				// Remove the event listener after 5 seconds in case the file is not changed.
-				setTimeout(() => {
-					this.app.metadataCache.offref(event);
-				}, 5000);
-			},
-		});
-
-		this.addCommand({
-			id: "publish-note",
-			name: "Publish Single Note",
-			callback: async () => {
-				await this.publishSingleNote();
-			},
-		});
-
-		if (this.settings["ENABLE_DEVELOPER_TOOLS"] && Platform.isDesktop) {
-			Logger.info("Developer tools enabled");
-
-			const publisher = new Publisher(
-				this.app.vault,
-				this.app.metadataCache,
-				this.settings,
-			);
-
-			import("./src/test/snapshot/generateGardenSnapshot")
-				.then((snapshotGen) => {
-					this.addCommand({
-						id: "generate-garden-snapshot",
-						name: "Generate Garden Snapshot",
-						callback: async () => {
-							await snapshotGen.generateGardenSnapshot(
-								this.settings,
-								publisher,
-							);
-						},
-					});
-				})
-				.catch((e) => {
-					Logger.error("Unable to load generateGardenSnapshot", e);
-				});
-		}
-
-		this.addCommand({
-			id: "publish-multiple-notes",
-			name: "Publish Multiple Notes",
-			// TODO: move to publisher?
-			callback: async () => {
-				const statusBarItem = this.addStatusBarItem();
-
-				try {
-					new Notice("Processing files to publish...");
-					const { vault, metadataCache } = this.app;
-
-					const publisher = new Publisher(
-						vault,
-						metadataCache,
-						this.settings,
-					);
-					publisher.validateSettings();
-
-					const siteManager = new DigitalGardenSiteManager(
-						metadataCache,
-						this.settings,
-					);
-
-					const publishStatusManager = new PublishStatusManager(
-						siteManager,
-						publisher,
-					);
-
-					const publishStatus =
-						await publishStatusManager.getPublishStatus();
-
-					const filesToPublish = publishStatus.changedNotes.concat(
-						publishStatus.unpublishedNotes,
-					);
-					const filesToDelete = publishStatus.deletedNotePaths;
-					const imagesToDelete = publishStatus.deletedImagePaths;
-
-					const totalItems =
-						filesToPublish.length +
-						filesToDelete.length +
-						imagesToDelete.length;
-
-					if (totalItems === 0) {
-						new Notice("Garden is already fully synced!");
-						statusBarItem.remove();
-
-						return;
-					}
-
-					const statusBar = new PublishStatusBar(
-						statusBarItem,
-						filesToPublish.length +
-							filesToDelete.length +
-							imagesToDelete.length,
-					);
-
-					let errorFiles = 0;
-					let errorDeleteFiles = 0;
-					let errorDeleteImage = 0;
-
-					new Notice(
-						`Publishing ${filesToPublish.length} notes, deleting ${filesToDelete.length} notes and ${imagesToDelete.length} images. See the status bar in lower right corner for progress.`,
-						8000,
-					);
-
-					for (const file of filesToPublish) {
-						try {
-							statusBar.increment();
-							await publisher.publish(file);
-						} catch {
-							errorFiles++;
-
-							new Notice(
-								`Unable to publish note ${file.file.name}, skipping it.`,
-							);
-						}
-					}
-
-					for (const filePath of filesToDelete) {
-						try {
-							statusBar.increment();
-
-							// TODO: include sha from file.remoteHash to make faster!
-							await publisher.deleteNote(
-								filePath.path,
-								filePath.sha,
-							);
-						} catch {
-							errorDeleteFiles++;
-
-							new Notice(
-								`Unable to delete note ${filePath}, skipping it.`,
-							);
-						}
-					}
-
-					for (const filePath of imagesToDelete) {
-						try {
-							statusBar.increment();
-
-							await publisher.deleteImage(
-								filePath.path,
-								filePath.sha,
-							);
-						} catch {
-							errorDeleteImage++;
-
-							new Notice(
-								`Unable to delete image ${filePath}, skipping it.`,
-							);
-						}
-					}
-
-					statusBar.finish(8000);
-
-					new Notice(
-						`Successfully published ${
-							filesToPublish.length - errorFiles
-						} notes to your garden.`,
-					);
-
-					if (filesToDelete.length > 0) {
-						new Notice(
-							`Successfully deleted ${
-								filesToDelete.length - errorDeleteFiles
-							} notes from your garden.`,
-						);
-					}
-
-					if (imagesToDelete.length > 0) {
-						new Notice(
-							`Successfully deleted ${
-								imagesToDelete.length - errorDeleteImage
-							} images from your garden.`,
-						);
-					}
-				} catch (e) {
-					statusBarItem.remove();
-					console.error(e);
-
-					new Notice(
-						"Unable to publish multiple notes, something went wrong.",
-					);
-				}
-			},
-		});
-
-		this.addCommand({
-			id: "copy-garden-url",
-			name: "Copy Garden URL",
-			callback: async () => {
-				this.copyGardenUrlToClipboard();
-			},
-		});
+		// this.addCommand({
+		// 	id: "publish-note",
+		// 	name: "Publish Single Note",
+		// 	callback: async () => {
+		// 		await this.publishSingleNote();
+		// 	},
+		// });
 
 		this.addCommand({
 			id: "dg-open-publish-modal",
@@ -462,7 +190,7 @@ export default class DigitalGarden extends Plugin {
 		const activeFile = workspace.getActiveFile();
 
 		if (!activeFile) {
-			new Notice(
+			errorNotice(
 				"No file is open/active. Please open a file and try again.",
 			);
 
@@ -472,53 +200,27 @@ export default class DigitalGarden extends Plugin {
 		return activeFile;
 	}
 
-	async copyGardenUrlToClipboard() {
-		try {
-			const { metadataCache, workspace } = this.app;
-
-			const activeFile = this.getActiveFile(workspace);
-
-			if (!activeFile) {
-				return;
-			}
-
-			const siteManager = new DigitalGardenSiteManager(
-				metadataCache,
-				this.settings,
-			);
-			const fullUrl = siteManager.getNoteUrl(activeFile);
-
-			await navigator.clipboard.writeText(fullUrl);
-			new Notice(`Note URL copied to clipboard`);
-		} catch (e) {
-			console.log(e);
-
-			new Notice(
-				"Unable to copy note URL to clipboard, something went wrong.",
-			);
-		}
-	}
-
-	// TODO: move to publisher?
 	async publishSingleNote() {
+		let activeFile: TFile | null = null;
+
 		try {
 			const { vault, workspace, metadataCache } = this.app;
 
-			const activeFile = this.getActiveFile(workspace);
+			activeFile = this.getActiveFile(workspace);
 
 			if (!activeFile) {
 				return;
 			}
 
 			if (activeFile.extension !== "md") {
-				new Notice(
+				errorNotice(
 					"The current file is not a markdown file. Please open a markdown file and try again.",
 				);
 
 				return;
 			}
 
-			new Notice("Publishing note...");
+			normalNotice("Publishing note...");
 
 			const publisher = new Publisher(
 				vault,
@@ -538,13 +240,18 @@ export default class DigitalGarden extends Plugin {
 			const publishSuccessful = await publisher.publish(publishFile);
 
 			if (publishSuccessful) {
-				new Notice(`Successfully published note to your garden.`);
+				successNotice(
+					`Successfully published note: ${activeFile.path}`,
+				);
 			}
 
 			return publishSuccessful;
 		} catch (e) {
 			console.error(e);
-			new Notice("Unable to publish note, something went wrong.");
+
+			errorNotice(
+				`Unable to publish note: ${activeFile?.path}, something went wrong.`,
+			);
 
 			return false;
 		}
@@ -562,7 +269,10 @@ export default class DigitalGarden extends Plugin {
 			this.app.metadataCache,
 			activeFile,
 		);
-		engine.set(FRONTMATTER_KEYS.PUBLISH, value).apply();
+
+		engine
+			.set(this.settings.publishKey || FRONTMATTER_KEYS.PUBLISH, value)
+			.apply();
 	}
 	async togglePublishFlag() {
 		const activeFile = this.getActiveFile(this.app.workspace);
@@ -577,10 +287,12 @@ export default class DigitalGarden extends Plugin {
 			activeFile,
 		);
 
-		engine
+		await engine
 			.set(
-				FRONTMATTER_KEYS.PUBLISH,
-				!engine.get(FRONTMATTER_KEYS.PUBLISH),
+				this.settings.publishKey || FRONTMATTER_KEYS.PUBLISH,
+				!engine.get(
+					this.settings.publishKey || FRONTMATTER_KEYS.PUBLISH,
+				),
 			)
 			.apply();
 	}

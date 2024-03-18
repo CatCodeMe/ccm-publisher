@@ -6,6 +6,8 @@ type TreeNode = {
 	checked: boolean;
 	indeterminate: boolean;
 	remotePath: string;
+	isImg: boolean;
+	remoteHash?: string;
 };
 
 export default TreeNode;

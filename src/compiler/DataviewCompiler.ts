@@ -1,9 +1,9 @@
-import { Component, Notice } from "obsidian";
+import { Component } from "obsidian";
 import { TCompilerStep } from "./GardenPageCompiler";
 import { escapeRegExp } from "../utils/utils";
 import { DataviewApi, getAPI } from "obsidian-dataview";
 import { PublishFile } from "src/publishFile/PublishFile";
-import Logger from "js-logger";
+import { errorNotice } from "../utils/NoticeUtils";
 
 export class DataviewCompiler {
 	constructor() {}
@@ -67,14 +67,11 @@ export class DataviewCompiler {
 					markdown = this.surroundWithCalloutBlock(markdown);
 				}
 
-				replacedText = replacedText.replace(
-					block,
-					`${markdown}\n{ .block-language-dataview}`,
-				);
+				replacedText = replacedText.replace(block, `${markdown}`);
 			} catch (e) {
 				console.log(e);
 
-				new Notice(
+				errorNotice(
 					"Unable to render dataview query. Please update the dataview plugin to the latest version.",
 				);
 
@@ -102,7 +99,7 @@ export class DataviewCompiler {
 			} catch (e) {
 				console.log(e);
 
-				new Notice(
+				errorNotice(
 					"Unable to render dataviewjs query. Please update the dataview plugin to the latest version.",
 				);
 
@@ -129,7 +126,7 @@ export class DataviewCompiler {
 			} catch (e) {
 				console.log(e);
 
-				new Notice(
+				errorNotice(
 					"Unable to render inline dataview query. Please update the dataview plugin to the latest version.",
 				);
 
@@ -159,9 +156,9 @@ export class DataviewCompiler {
 					result ?? "Unable to render query",
 				);
 			} catch (e) {
-				Logger.error(e);
+				console.error(e);
 
-				new Notice(
+				errorNotice(
 					"Unable to render inline dataviewjs query. Please update the dataview plugin to the latest version.",
 				);
 
@@ -230,7 +227,7 @@ function tryDVEvaluate(
 		});
 		result = dataviewResult?.toString() ?? "";
 	} catch (e) {
-		Logger.warn("dvapi.tryEvaluate did not yield any result", e);
+		console.warn("dvapi.tryEvaluate did not yield any result", e);
 	}
 
 	return result;
@@ -242,7 +239,7 @@ function tryEval(query: string) {
 	try {
 		result = (0, eval)("const dv = DataviewAPI;" + query); //https://esbuild.github.io/content-types/#direct-eval
 	} catch (e) {
-		Logger.warn("eval did not yield any result", e);
+		console.warn("eval did not yield any result", e);
 	}
 
 	return result;

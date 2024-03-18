@@ -1,7 +1,9 @@
 import { Base64 } from "js-base64";
 import sha1 from "crypto-js/sha1";
 import { PathRewriteRules } from "../repositoryConnection/DigitalGardenSiteManager";
-
+import fs from "fs";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const gitHashObject = require("git-hash-object");
 const REWRITE_RULE_DELIMITER = ":";
 
 function arrayBufferToBase64(buffer: ArrayBuffer) {
@@ -55,6 +57,31 @@ function generateBlobHash(content: string) {
 	const gitBlob = header + content;
 
 	return sha1(gitBlob).toString();
+}
+
+function localImgHashFromBuffer(buffer: Buffer) {
+	return gitHashObject(buffer);
+}
+
+function localImgHashFromFullPath(path: string) {
+	try {
+		const buffer = getFileBuffer(path);
+
+		return gitHashObject(buffer);
+	} catch (err) {
+		console.error(err);
+
+		return "";
+	}
+}
+
+function getFileBuffer(filePath: string): Buffer {
+	// eslint-disable-next-line no-useless-catch
+	try {
+		return fs.readFileSync(filePath);
+	} catch (err) {
+		throw err;
+	}
 }
 
 function kebabize(str: string) {
@@ -134,11 +161,44 @@ function sanitizePermalink(permalink: string): string {
 	return permalink;
 }
 
+/**
+ * remove / prefix, add / suffix
+ * @param path
+ */
+function formatPath(path: string): string {
+	if (!path) {
+		return "";
+	}
+
+	if (path.trim() === "/") {
+		return "";
+	}
+
+	if (path.startsWith("/")) {
+		let i = 0;
+
+		// 找到第一个非 '/' 字符的位置
+		while (i < path.length && path[i] === "/") {
+			i++;
+		}
+		// 截取字符串从第一个非 '/' 字符的位置开始
+		path = path.substring(i);
+	}
+
+	if (!path.endsWith("/")) {
+		path = path + "/";
+	}
+
+	return path;
+}
+
 export {
 	arrayBufferToBase64,
 	extractBaseUrl,
 	generateUrlPath,
 	generateBlobHash,
+	localImgHashFromFullPath,
+	localImgHashFromBuffer,
 	kebabize,
 	wrapAround,
 	getRewriteRules,
@@ -146,4 +206,5 @@ export {
 	escapeRegExp,
 	fixSvgForXmlSerializer,
 	sanitizePermalink,
+	formatPath,
 };

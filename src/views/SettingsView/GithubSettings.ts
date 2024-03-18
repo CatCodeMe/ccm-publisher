@@ -1,4 +1,4 @@
-import { Setting, debounce } from "obsidian";
+import { debounce, Setting } from "obsidian";
 import SettingView from "./SettingView";
 import { Octokit } from "@octokit/core";
 
@@ -7,6 +7,7 @@ export class GithubSettings {
 	connectionStatus: "loading" | "connected" | "error";
 	private settingsRootElement: HTMLElement;
 	connectionStatusElement: HTMLElement;
+	branchStatusElement: HTMLElement;
 
 	constructor(settings: SettingView, settingsRootElement: HTMLElement) {
 		this.settings = settings;
@@ -19,10 +20,18 @@ export class GithubSettings {
 			"span",
 			{ cls: "connection-status" },
 		);
+
+		this.branchStatusElement = this.settingsRootElement.createSpan(
+			"span",
+			(span) => {
+				span.style.color = "red";
+			},
+		);
 		this.initializeHeader();
 		this.initializeGitHubRepoSetting();
 		this.initializeGitHubUserNameSetting();
 		this.initializeGitHubTokenSetting();
+		this.initialBranchName();
 		this.initIgnoreFiles();
 	}
 
@@ -66,6 +75,26 @@ export class GithubSettings {
 		} catch (error) {
 			this.connectionStatus = "error";
 		}
+
+		try {
+			if (this.settings.settings.branchName) {
+				const response = await oktokit.request(
+					"GET /repos/{owner}/{repo}/branches/{branch}",
+					{
+						owner: this.settings.settings.githubUserName,
+						repo: this.settings.settings.githubRepo,
+						branch: this.settings.settings.branchName,
+					},
+				);
+
+				if (response.status === 200) {
+					this.branchStatusElement.innerText = "branch exist ✅";
+				}
+			}
+		} catch (error) {
+			this.branchStatusElement.innerText =
+				"branch don't exist, need create it ❌";
+		}
 		this.updateConnectionStatusIndicator();
 	};
 
@@ -91,11 +120,11 @@ export class GithubSettings {
 
 	private initializeGitHubRepoSetting() {
 		new Setting(this.settingsRootElement)
-			.setName("GitHub repo name")
+			.setName("GitHub Repo Name")
 			.setDesc("The name of the GitHub repository")
 			.addText((text) =>
 				text
-					.setPlaceholder("mydigitalgarden")
+					.setPlaceholder("repo_name")
 					.setValue(this.settings.settings.githubRepo)
 					.onChange(async (value) => {
 						this.settings.settings.githubRepo = value;
@@ -107,7 +136,7 @@ export class GithubSettings {
 	private initializeGitHubUserNameSetting() {
 		new Setting(this.settingsRootElement)
 			.setName("GitHub Username")
-			.setDesc("Your GitHub Username")
+			.setDesc("Your GitHub Username (case insensitive)")
 			.addText((text) =>
 				text
 					.setPlaceholder("myusername")
@@ -134,7 +163,7 @@ export class GithubSettings {
 		});
 
 		new Setting(this.settingsRootElement)
-			.setName("GitHub token")
+			.setName("GitHub Token")
 			.setDesc(desc)
 			.addText((text) =>
 				text
@@ -147,16 +176,48 @@ export class GithubSettings {
 			);
 	}
 
+	private initialBranchName() {
+		const nameELe = document.createDocumentFragment();
+
+		nameELe.createEl("div", undefined, (div) => {
+			div.innerText = "Branch Name ";
+
+			div.append(this.branchStatusElement);
+		});
+
+		new Setting(this.settingsRootElement)
+			.setName(nameELe)
+			.setDesc(
+				"pushed branch, now only support one branch, default is main",
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder("main")
+					.setValue(this.settings.settings.branchName)
+					.onChange(async (value) => {
+						this.settings.settings.branchName = value;
+						await this.checkConnectionAndSaveSettings();
+					}),
+			);
+	}
+
 	private initIgnoreFiles() {
 		new Setting(this.settingsRootElement)
-			.setName("Ignore files (Optional)")
-			.setDesc("ignored directory and files")
+			.setName("Ignore Files (Optional)")
+			.setDesc(
+				"ignored directory and files, don't display in publish center modal",
+			)
 			.addText((text) =>
 				text
 					.setPlaceholder(".github,index.md,.gitkeep")
 					.setValue(this.settings.settings.ignoredDirOrFiles)
 					.onChange(async (value) => {
-						this.settings.settings.ignoredDirOrFiles = value;
+						if (!value) {
+							this.settings.settings.ignoredDirOrFiles = "";
+						} else {
+							this.settings.settings.ignoredDirOrFiles =
+								value.trim();
+						}
 					}),
 			);
 	}

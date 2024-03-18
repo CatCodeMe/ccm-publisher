@@ -1,16 +1,14 @@
 <script lang="ts">
-	import { getIcon } from "obsidian";
+	import {getIcon} from "obsidian";
 	import TreeNode from "../../models/TreeNode";
-	import {
-		IPublishStatusManager,
-		PublishStatus,
-	} from "../../publisher/PublishStatusManager";
+	import {IPublishStatusManager, PublishStatus,} from "../../publisher/PublishStatusManager";
 	import TreeView from "src/ui/TreeView/TreeView.svelte";
-	import { onMount } from "svelte";
+	import {onMount} from "svelte";
 	import Publisher from "src/publisher/Publisher";
 	import Icon from "../../ui/Icon.svelte";
-	import { CompiledPublishFile } from "src/publishFile/PublishFile";
 	import PathPair from "../../models/PathPair";
+	import {GitHubFile} from "../../repositoryConnection/GitHubFile";
+	import {flip} from "svelte/animate";
 
 	export let publishStatusManager: IPublishStatusManager;
 	export let publisher: Publisher;
@@ -20,6 +18,7 @@
 	let publishStatus: PublishStatus;
 	let showPublishingView: boolean = false;
 
+	let commitMsg = "";
 	let stat = {
 		unPub: {
 			checked: 0,
@@ -38,17 +37,25 @@
 
 	async function getPublishStatus() {
 		publishStatus = await publishStatusManager.getPublishStatus();
-		stat.unPub.total = publishStatus.unpublishedNotes?.length || 0;
-		stat.change.total = publishStatus.changedNotes?.length || 0;
+
+		stat.unPub.total =
+			(publishStatus.unpublishedNotes.length || 0) +
+			(publishStatus.unpublishedImages.length || 0);
+
+		stat.change.total =
+			(publishStatus.changedNotes?.length || 0) +
+			(publishStatus.changedImages?.length || 0);
 
 		stat.del.total =
 			(publishStatus.deletedNotePaths?.length || 0) +
 			(publishStatus.deletedImagePaths?.length || 0);
 
-		stat.published = publishStatus.publishedNotes?.length || 0;
+		stat.published =
+			(publishStatus.publishedNotes?.length || 0) +
+			(publishStatus.publishedImages?.length || 0);
 	}
 
-	onMount(getPublishStatus);
+	onMount(() => getPublishStatus);
 
 	function insertIntoTree(tree: TreeNode, pathPair: PathPair): void {
 		let currentNode = tree;
@@ -74,6 +81,7 @@
 					indeterminate: false,
 					checked: false,
 					remotePath: pathPair.remotePath,
+					isImg: pathPair.isImg,
 				};
 				currentNode.children.push(childNode);
 			}
@@ -93,11 +101,10 @@
 			indeterminate: false,
 			checked: false,
 			remotePath: "/",
+			isImg: false,
 		};
 
 		for (const pathPair of filePaths) {
-			// const pathComponents = filePath.localPath.split("/");
-
 			insertIntoTree(root, pathPair);
 		}
 
@@ -125,23 +132,38 @@
 		publishStatus &&
 		filePathsToTree(
 			//已发布的笔记路径，和github保持一致
-			publishStatus.publishedNotes.map(
-				(note) =>
-					new PathPair(
-						note.meta.getCustomPath(),
-						note.meta.getCustomPath(),
-					),
-			),
+			[
+				...publishStatus.publishedNotes.map(
+					(note) =>
+						new PathPair(
+							note.meta.getCustomRemotePath(),
+							note.meta.getCustomRemotePath(),
+							false,
+						),
+				),
+				...publishStatus.publishedImages.map(
+					(img) => new PathPair(img.remotePath, img.remotePath, true),
+				),
+			],
 			"Published Notes",
 		);
 
 	$: changedNotesTree =
 		publishStatus &&
 		filePathsToTree(
-			publishStatus.changedNotes.map(
-				(note) =>
-					new PathPair(note.getPath(), note.meta.getCustomPath()),
-			),
+			[
+				...publishStatus.changedNotes.map(
+					(note) =>
+						new PathPair(
+							note.getPath(),
+							note.meta.getCustomRemotePath(),
+							false,
+						),
+				),
+				...publishStatus.changedImages.map(
+					(img) => new PathPair(img.localPath, img.remotePath, true),
+				),
+			],
 			"Changed Notes",
 		);
 
@@ -149,26 +171,45 @@
 		publishStatus &&
 		filePathsToTree(
 			[
-				...publishStatus.deletedNotePaths,
-				...publishStatus.deletedImagePaths,
-			].map((path) => new PathPair(path.path, "")),
+				...publishStatus.deletedNotePaths.map(
+					(path) =>
+						new PathPair(
+							path.remotePath,
+							path.remotePath,
+							false,
+							path.sha,
+						),
+				),
+				...publishStatus.deletedImagePaths.map(
+					(path) =>
+						new PathPair(
+							path.remotePath,
+							path.remotePath,
+							true,
+							path.sha,
+						),
+				),
+			],
 			"Deleted Notes",
 		);
 
 	$: unpublishedNoteTree =
 		publishStatus &&
 		filePathsToTree(
-			publishStatus.unpublishedNotes.map(
-				(note) => new PathPair(note.getPath(), ""),
-			),
+			[
+				...publishStatus.unpublishedNotes.map(
+					(note) => new PathPair(note.getPath(), "", false),
+				),
+				...publishStatus.unpublishedImages.map(
+					(img) => new PathPair(img.localPath, "", true),
+				),
+			],
 			"Unpublished Notes",
 		);
 
 	$: publishProgress =
 		((publishedPaths.length + failedPublish.length) /
-			(unpublishedToPublish.length +
-				changedToPublish.length +
-				pathsToDelete.length)) *
+			(addOrUpdateImages.length + toUpdateNotes.length)) *
 		100;
 
 	const traverseTree = (tree: TreeNode): Array<string> => {
@@ -187,13 +228,16 @@
 		return paths;
 	};
 
-	let unpublishedToPublish: Array<CompiledPublishFile> = [];
-	let changedToPublish: Array<CompiledPublishFile> = [];
-	let pathsToDelete: Array<string> = [];
-
 	let processingPaths: Array<string> = [];
-	let publishedPaths: Array<string> = [];
-	let failedPublish: Array<string> = [];
+	let publishedPaths: string[] = [];
+	let failedPublish: string[] = [];
+
+	let addOrUpdateImages: GitHubFile[] = [];
+	let toUpdateNotes: GitHubFile[] = [];
+	let combineFiles: string[] = [];
+
+	let toPushedFilePath: string[] = [];
+	let toDeleteFilesPath: string[] = [];
 
 	const publishMarkedNotes = async () => {
 		if (!unpublishedNoteTree || !changedNotesTree) return;
@@ -205,69 +249,111 @@
 		const unpublishedPaths = traverseTree(unpublishedNoteTree!);
 		const changedPaths = traverseTree(changedNotesTree!);
 
-		pathsToDelete = traverseTree(deletedNoteTree!);
+		const pathsToDelete = traverseTree(deletedNoteTree!);
 
 		const notesToDelete = pathsToDelete.filter((path) =>
-			publishStatus.deletedNotePaths.some((p) => p.path === path),
+			publishStatus.deletedNotePaths.some((p) => p.remotePath === path),
 		);
 
 		const imagesToDelete = pathsToDelete.filter((path) =>
-			publishStatus.deletedImagePaths.some((p) => p.path === path),
+			publishStatus.deletedImagePaths.some((p) => p.remotePath === path),
 		);
 
-		unpublishedToPublish =
+		const unpublishedToPublish =
 			publishStatus.unpublishedNotes.filter((note) =>
 				unpublishedPaths.includes(note.getPath()),
 			) ?? [];
 
-		changedToPublish =
+		const changedToPublish =
 			publishStatus?.changedNotes.filter((note) =>
 				changedPaths.includes(note.getPath()),
 			) ?? [];
 
-		showPublishingView = true;
+		const unpublishedToPublishImages =
+			publishStatus.unpublishedImages.filter((note) =>
+				unpublishedPaths.includes(note.localPath),
+			) ?? [];
 
-		for (const note of changedToPublish.concat(unpublishedToPublish)) {
-			processingPaths.push(note.getPath());
-			let isPublished = await publisher.publish(note);
+		const changedToPublishImages =
+			publishStatus.changedImages.filter((note) =>
+				changedPaths.includes(note.localPath),
+			) ?? [];
 
-			processingPaths = processingPaths.filter(
-				(path) => path !== note.getPath(),
+		//1. 添加
+		//2. 提交
+		//3. 更新引用
+		const addOrUpdateNotes = [
+			...changedToPublish,
+			...unpublishedToPublish,
+		].map((note) => GitHubFile.noteForUpload(note));
+		toPushedFilePath = addOrUpdateNotes.map((f) => f.path);
+
+		const toDeleteFiles = [...notesToDelete, ...imagesToDelete].map(
+			(fileRemotePath) => GitHubFile.fileForDelete(fileRemotePath),
+		);
+		toDeleteFilesPath = toDeleteFiles.map((f) => f.path);
+
+		toUpdateNotes = [
+			...addOrUpdateNotes,
+			// ...addOrUpdateImages,
+			...toDeleteFiles,
+		];
+
+		addOrUpdateImages = [
+			...changedToPublishImages,
+			...unpublishedToPublishImages,
+		].map((note) => GitHubFile.imgForUpload(note));
+
+		toPushedFilePath = [
+			...toPushedFilePath,
+			...addOrUpdateImages.map((f) => f.path),
+		];
+
+		combineFiles = [
+			...addOrUpdateImages.map((f) => f.path),
+			...toUpdateNotes.map((f) => f.path),
+		];
+
+		if (toUpdateNotes.length > 0 || addOrUpdateImages.length > 0) {
+			showPublishingView = true;
+
+			const uploadResult = await publisher.batchPublish(
+				toUpdateNotes,
+				commitMsg,
 			);
 
-			if (isPublished) {
-				publishedPaths = [...publishedPaths, note.getPath()];
+			if (uploadResult) {
+				publishedPaths = [
+					...publishedPaths,
+					...toUpdateNotes.map((gf) => gf.path),
+				];
 			} else {
-				failedPublish = [...failedPublish, note.getPath()];
-			}
-		}
-
-		for (const path of [...notesToDelete, ...imagesToDelete]) {
-			processingPaths.push(path);
-			const isNote = path.endsWith(".md");
-			let isDeleted: boolean;
-
-			if (isNote) {
-				const sha = publishStatus.deletedNotePaths.find(
-					(p) => p.path === path,
-				)?.sha;
-
-				isDeleted = await publisher.deleteNote(path, sha);
-			} else {
-				const sha = publishStatus.deletedImagePaths.find(
-					(p) => p.path === path,
-				)?.sha;
-				// TODO: remove with sha
-				isDeleted = await publisher.deleteImage(path, sha);
+				failedPublish = [
+					...failedPublish,
+					...toUpdateNotes.map((gf) => gf.path),
+				];
 			}
 
-			processingPaths = processingPaths.filter((p) => p !== path);
+			for (let i = addOrUpdateImages.length - 1; i >= 0; i--) {
+				let image = addOrUpdateImages[i];
+				const updateResult = await publisher.updateImage(
+					image,
+					commitMsg,
+				);
 
-			if (isDeleted) {
-				publishedPaths = [...publishedPaths, path];
-			} else {
-				failedPublish = [...failedPublish, path];
+				if (updateResult) {
+					publishedPaths = [...publishedPaths, image.path];
+				} else {
+					failedPublish = [...failedPublish, image.path];
+				}
 			}
+
+			combineFiles = [
+				...failedPublish.sort((a, b) => a?.localeCompare(b)),
+				...publishedPaths.sort((a, b) => a?.localeCompare(b)),
+			];
+		} else {
+			close();
 		}
 	};
 
@@ -278,6 +364,7 @@
 		indeterminate: false,
 		checked: false,
 		remotePath: "",
+		isImg: false,
 	};
 </script>
 
@@ -316,6 +403,13 @@
 			/>
 		</div>
 		<hr class="footer-separator" />
+		<input
+			id="commit-msg"
+			placeholder="commit msg"
+			type="text"
+			bind:value={commitMsg}
+		/>
+		<hr class="footer-separator" />
 
 		<div class="footer-select">
 			<span title="Unpublished Notes"
@@ -346,14 +440,12 @@
 				<div class="callout-title-inner">Publishing Notes</div>
 				<div>
 					{`${publishedPaths.length} of ${
-						unpublishedToPublish.length +
-						changedToPublish.length +
-						pathsToDelete.length
+						addOrUpdateImages.length + toUpdateNotes.length
 					} notes published`}
 				</div>
 
 				{#if failedPublish.length > 0}
-					<div>
+					<div class="failed-stat">
 						{`(${failedPublish.length} failed)`}
 					</div>
 				{/if}
@@ -365,37 +457,24 @@
 				</div>
 			</div>
 
-			{#each unpublishedToPublish.concat(changedToPublish) as note}
-				<div class="note-list">
-					{#if processingPaths.includes(note.getPath())}
-						{@html rotatingCog()?.outerHTML}
-					{:else if publishedPaths.includes(note.getPath())}
-						<Icon name="check" />
-					{:else if failedPublish.includes(note.getPath())}
-						<Icon name="cross" />
+			{#each combineFiles as fpath (fpath)}
+				<div class="note-list" animate:flip>
+					{#if processingPaths.includes(fpath)}
+						<span>{@html rotatingCog()?.outerHTML}</span> {fpath}
+					{:else if publishedPaths.includes(fpath)}
+						<span><Icon name="check" /></span> {fpath}
+					{:else if failedPublish.includes(fpath)}
+						<span class="failed-path"><Icon name="cross" /> </span>
+						{fpath}
 					{:else}
-						<Icon name="clock" />
+						<span><Icon name="clock" /> </span> {fpath}
 					{/if}
-					{note.file.name}
-					{#if publishedPaths.includes(note.getPath())}
-						<span class="published"> - PUBLISHED</span>
-					{/if}
-				</div>
-			{/each}
-
-			{#each pathsToDelete as path}
-				<div class="note-list">
-					{#if processingPaths.includes(path)}
-						{@html rotatingCog()?.outerHTML}
-					{:else if publishedPaths.includes(path)}
-						<Icon name="check" />
-					{:else}
-						<Icon name="clock" />
-					{/if}
-					{path.split("/").last()}
-
-					{#if publishedPaths.includes(path)}
-						<span class="deleted"> - DELETED</span>
+					{#if publishedPaths.includes(fpath)}
+						{#if toPushedFilePath.includes(fpath)}
+							<span class="published"> - PUBLISHED</span>
+						{:else if toDeleteFilesPath.includes(fpath)}
+							<span class="deleted"> - DELETED</span>
+						{/if}
 					{/if}
 				</div>
 			{/each}
@@ -460,16 +539,38 @@
 	}
 
 	.published {
-		color: #8bff8b;
+		color: rgba(33, 126, 33, 0.5);
 	}
 
 	.deleted {
 		color: #ff5757;
 	}
 
+	.failed-stat {
+		color: #ff5757;
+	}
+
 	.viewContent {
 		max-height: 300px;
 		overflow: auto;
-		scrollbar-width: thin;
+	}
+
+	input#commit-msg {
+		width: 80%;
+		border: 2px solid #ced4da;
+		height: 2rem;
+		border-radius: var(--radius-s);
+	}
+
+	hr {
+		border-top: var(--hr-thickness) dashed var(--hr-color);
+	}
+
+	.note-list > span:first-child {
+		position: relative;
+		top: 5px;
+	}
+	.failed-path {
+		color: #ff5757;
 	}
 </style>
