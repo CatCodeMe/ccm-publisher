@@ -1,7 +1,7 @@
 {
 	"id": "Quartz Publisher",
 	"name": "Quartz Publisher",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"minAppVersion": "1.5.8",
 	"description": "Publish your notes to github",
 	"author": "CatCodeMe",

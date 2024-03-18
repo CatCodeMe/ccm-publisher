@@ -46,8 +46,12 @@ jobs:
             - name: "Build"
               run: npm run build
 
+            - name: "zip build"
+              run: zip ${{ secrets.ReleaseZipName }} styles.css main.js manifest.json
+
             - name: Get package version
               run: node -p -e '`MANIFEST_VERSION=${require("./manifest.json").version}`' >> $GITHUB_ENV
+
             - name: "Create Release"
               uses: softprops/action-gh-release@v2
               if: startsWith(github.ref, 'refs/tags/')
@@ -56,6 +60,7 @@ jobs:
                     styles.css
                     main.js
                     manifest.json
+                    ${{ secrets.ReleaseZipName }}.zip
                 token: ${{ secrets.gh_token }}
                 name: Release ${{ env.MANIFEST_VERSION }}
                 make_latest: true
