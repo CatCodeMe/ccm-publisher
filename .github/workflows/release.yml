@@ -65,9 +65,8 @@ jobs:
               if: startsWith(github.ref, 'refs/tags/')
               with:
                 files: |
-                  style.css
+                  styles.css
                   main.js
                   manifest.json
-                tag_name: ${{ github.ref }}
                 token: ${{ secrets.gh_token }}
-                release_name: Release ${{ env.MANIFEST_VERSION }}
+                name: Release ${{ env.MANIFEST_VERSION }}
