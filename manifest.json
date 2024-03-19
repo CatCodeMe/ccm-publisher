@@ -1,6 +1,6 @@
 {
-	"id": "Quartz Publisher",
-	"name": "Quartz Publisher",
+	"id": "CCM Publisher",
+	"name": "CCM Publisher",
 	"version": "0.1.4",
 	"minAppVersion": "1.5.8",
 	"description": "Publish your notes to github",
