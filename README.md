@@ -35,4 +35,3 @@
 
 - [ ] check conflict path
 - [ ] more option for settings
-- [ ] 
