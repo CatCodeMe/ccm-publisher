@@ -1,17 +1,14 @@
 <script lang="ts">
-	import { getIcon } from "obsidian";
+	import {getIcon} from "obsidian";
 	import TreeNode from "../../models/TreeNode";
-	import {
-		IPublishStatusManager,
-		PublishStatus,
-	} from "../../publisher/PublishStatusManager";
+	import {IPublishStatusManager, PublishStatus,} from "../../publisher/PublishStatusManager";
 	import TreeView from "src/ui/TreeView/TreeView.svelte";
-	import { onMount } from "svelte";
+	import {onMount} from "svelte";
 	import Publisher from "src/publisher/Publisher";
 	import Icon from "../../ui/Icon.svelte";
 	import PathPair from "../../models/PathPair";
-	import { GitHubFile } from "../../repositoryConnection/GitHubFile";
-	import { flip } from "svelte/animate";
+	import {GitHubFile} from "../../repositoryConnection/GitHubFile";
+	import {flip} from "svelte/animate";
 
 	export let publishStatusManager: IPublishStatusManager;
 	export let publisher: Publisher;
@@ -439,7 +436,7 @@
 			<button on:click={publishMarkedNotes}>PUBLISH SELECTED</button>
 		</div>
 	{:else}
-		<div>
+		<div class="commitContent">
 			<div class="callout">
 				<div class="callout-title-inner">Publishing Notes</div>
 				<div>
@@ -577,5 +574,10 @@
 
 	.failed-path {
 		color: #ff5757;
+	}
+
+	.commitContent {
+		max-height: 300px;
+		overflow: auto;
 	}
 </style>
