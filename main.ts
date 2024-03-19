@@ -38,7 +38,7 @@ export default class DigitalGarden extends Plugin {
 	async onload() {
 		this.appVersion = this.manifest.version;
 
-		console.log("Initializing Quartz Publisher plugin v" + this.appVersion);
+		console.log("Initializing CCM-Publisher plugin v" + this.appVersion);
 		await this.loadSettings();
 
 		this.addSettingTab(new DigitalGardenSettingTab(this.app, this));
@@ -47,7 +47,7 @@ export default class DigitalGarden extends Plugin {
 
 		this.addRibbonIcon(
 			"arrow-up-right-square",
-			"Quartz Publisher",
+			"CCM Publisher",
 			async () => {
 				this.openPublishModal();
 			},

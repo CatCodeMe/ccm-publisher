@@ -28,3 +28,6 @@ yarn.lock
 
 .env
 src/dg-testVault/.obsidian/workspace.json
+./scripts/cp.sh
+
+./scripts/cp_debug.sh
