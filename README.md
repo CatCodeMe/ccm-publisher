@@ -3,6 +3,8 @@
 - publish your obsidian notes to github with UI
 - inspired by `obsidian-digital-garden`, but for quartz
 
+
+
 ## design
 
 - main publish modal
@@ -13,6 +15,10 @@
 
 ## feature
 - support dataview
+
+## install
+- use BRAT plugin
+- download from latest release
 
 ## setting
 
