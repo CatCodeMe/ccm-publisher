@@ -11,6 +11,7 @@
 ![publisher_view1.png](img%2Fpublisher_view1.png)
 
 - commit modal
+
 ![commit_view.png](img%2Fcommit_view.png)
 
 ## feature
@@ -35,3 +36,4 @@
 
 - [ ] check conflict path
 - [ ] more option for settings
+- [ ] preview in local
