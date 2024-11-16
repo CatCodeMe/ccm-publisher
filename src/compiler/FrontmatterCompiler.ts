@@ -73,6 +73,7 @@ export class FrontmatterCompiler {
 				}
 
 				const remoteImgPath = `${formatPath(this.settings.imgBaseDir)}${linkedFile.path}`;
+
 				return encodeURI(remoteImgPath);
 			},
 		);
