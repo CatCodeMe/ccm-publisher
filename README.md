@@ -36,4 +36,4 @@
 
 - [ ] check conflict path
 - [ ] more option for settings
-- [ ] preview in local
+- [ ] preview in local 
