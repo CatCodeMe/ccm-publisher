@@ -55,7 +55,7 @@ export class FrontmatterCompiler {
 
 	private convertImageLink(text: string, file: PublishFile): string {
 		const imageRegex =
-			/!\[\[(.*?)(\.(png|jpg|jpeg|gif|webp))\|(.*?)\]\]|!\[\[(.*?)(\.(png|jpg|jpeg|gif|webp))\]\]/g;
+			/!?\[\[(.*?)(\.(png|jpg|jpeg|gif|webp))\|(.*?)\]\]|!?\[\[(.*?)(\.(png|jpg|jpeg|gif|webp))\]\]/g;
 
 		return text.replace(
 			imageRegex,
