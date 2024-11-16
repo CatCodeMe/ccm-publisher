@@ -21,49 +21,62 @@ export class FrontmatterCompiler {
 		this.settings = settings;
 	}
 
-    compile(file: PublishFile, frontmatter: FrontMatterCache): string {
-        if (!frontmatter) {
-            return "";
-        }
+	compile(file: PublishFile, frontmatter: FrontMatterCache): string {
+		if (!frontmatter) {
+			return "";
+		}
 
-        const clone = { ...frontmatter };
-        const publishedFrontmatter = this.convertFrontmatterImageLinks(clone, file);
+		const clone = { ...frontmatter };
 
-        return JSON.stringify(publishedFrontmatter, null, 2);
-    }
+		const publishedFrontmatter = this.convertFrontmatterImageLinks(
+			clone,
+			file,
+		);
 
-    private convertFrontmatterImageLinks(frontmatter: FrontMatterCache, file: PublishFile): TPublishedFrontMatter {
-        const result: Record<string, unknown> = {};
+		return JSON.stringify(publishedFrontmatter, null, 2);
+	}
 
-        for (const [key, value] of Object.entries(frontmatter)) {
-            if (typeof value === "string") {
-                result[key] = this.convertImageLink(value, file);
-            } else {
-                result[key] = value;
-            }
-        }
+	private convertFrontmatterImageLinks(
+		frontmatter: FrontMatterCache,
+		file: PublishFile,
+	): TPublishedFrontMatter {
+		const result: Record<string, unknown> = {};
 
-        return result as TPublishedFrontMatter;
-    }
+		for (const [key, value] of Object.entries(frontmatter)) {
+			if (typeof value === "string") {
+				result[key] = this.convertImageLink(value, file);
+			} else {
+				result[key] = value;
+			}
+		}
 
-    private convertImageLink(text: string, file: PublishFile): string {
-        const imageRegex = /!\[\[(.*?)(\.(png|jpg|jpeg|gif|webp))\|(.*?)\]\]|!\[\[(.*?)(\.(png|jpg|jpeg|gif|webp))\]\]/g;
+		return result as TPublishedFrontMatter;
+	}
 
-        return text.replace(imageRegex, (match, name1, ext1, _, meta, name2, ext2) => {
-            const imageName = name1 || name2;
-            const extension = ext1 || ext2;
-            
-            const linkedFile = file.getMetadataCache().getFirstLinkpathDest(
-                imageName + extension,
-                file.getPath()
-            );
+	private convertImageLink(text: string, file: PublishFile): string {
+		const imageRegex =
+			/!\[\[(.*?)(\.(png|jpg|jpeg|gif|webp))\|(.*?)\]\]|!\[\[(.*?)(\.(png|jpg|jpeg|gif|webp))\]\]/g;
 
-            if (!linkedFile) {
-                return match;
-            }
+		return text.replace(
+			imageRegex,
+			(match, name1, ext1, _, meta, name2, ext2) => {
+				const imageName = name1 || name2;
+				const extension = ext1 || ext2;
 
-            const remoteImgPath = `${formatPath(this.settings.imgBaseDir)}${linkedFile.path}`;
-            return encodeURI(remoteImgPath);
-        });
-    }
+				const linkedFile = file
+					.getMetadataCache()
+					.getFirstLinkpathDest(
+						imageName + extension,
+						file.getPath(),
+					);
+
+				if (!linkedFile) {
+					return match;
+				}
+
+				const remoteImgPath = `${formatPath(this.settings.imgBaseDir)}${linkedFile.path}`;
+				return encodeURI(remoteImgPath);
+			},
+		);
+	}
 }
