@@ -61,6 +61,6 @@ jobs:
                     main.js
                     manifest.json
                     release-${{ env.MANIFEST_VERSION }}.zip
-                token: ${{ secrets.GH_TOKEN }}
+                token: ${{ secrets.TOKEN_241116 }}
                 name: Release ${{ env.MANIFEST_VERSION }}
                 make_latest: true

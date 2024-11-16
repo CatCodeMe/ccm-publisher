@@ -17,40 +17,32 @@ export type TPublishedFrontMatter = Record<string, unknown> & {
 
 export class FrontmatterCompiler {
 	private readonly settings: DigitalGardenSettings;
+
 	constructor(settings: DigitalGardenSettings) {
 		this.settings = settings;
 	}
 
 	compile(file: PublishFile, frontmatter: FrontMatterCache): string {
-		if (!frontmatter) {
-			return "";
-		}
+		const fileFrontMatter = { ...frontmatter };
+		delete fileFrontMatter["position"];
 
-		const clone = { ...frontmatter };
+		const publishKey = this.settings.publishKey;
 
-		const publishedFrontmatter = this.convertFrontmatterImageLinks(
-			clone,
-			file,
-		);
+		const publishedFrontMatter: TPublishedFrontMatter = {
+			[publishKey]: true,
+		};
 
-		return JSON.stringify(publishedFrontmatter, null, 2);
-	}
-
-	private convertFrontmatterImageLinks(
-		frontmatter: FrontMatterCache,
-		file: PublishFile,
-	): TPublishedFrontMatter {
-		const result: Record<string, unknown> = {};
-
-		for (const [key, value] of Object.entries(frontmatter)) {
+		// Convert image links in frontmatter
+		for (const [key, value] of Object.entries(fileFrontMatter)) {
 			if (typeof value === "string") {
-				result[key] = this.convertImageLink(value, file);
-			} else {
-				result[key] = value;
+				fileFrontMatter[key] = this.convertImageLink(value, file);
 			}
 		}
 
-		return result as TPublishedFrontMatter;
+		const fullFrontMatter = { ...fileFrontMatter, ...publishedFrontMatter };
+		const frontMatterString = JSON.stringify(fullFrontMatter, null, 2);
+
+		return `---\n${frontMatterString}\n---\n`;
 	}
 
 	private convertImageLink(text: string, file: PublishFile): string {
