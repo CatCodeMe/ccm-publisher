@@ -63,12 +63,10 @@ export class FrontmatterCompiler {
 				const imageName = name1 || name2;
 				const extension = ext1 || ext2;
 
-				const linkedFile = file
-					.getMetadataCache()
-					.getFirstLinkpathDest(
-						imageName + extension,
-						file.getPath(),
-					);
+				const linkedFile = file.metadataCache.getFirstLinkpathDest(
+					imageName + extension,
+					file.getPath(),
+				);
 
 				if (!linkedFile) {
 					return match;
