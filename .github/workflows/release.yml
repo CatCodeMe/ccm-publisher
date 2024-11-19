@@ -54,7 +54,7 @@ jobs:
 
             - name: Create release
               env:
-                  GITHUB_TOKEN: ${{ secrets.TOKEN_241116 }}
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
                   tag="${GITHUB_REF#refs/tags/}"
                   
