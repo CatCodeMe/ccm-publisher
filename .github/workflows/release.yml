@@ -52,14 +52,26 @@ jobs:
             - name: "zip build"
               run: zip  release-${{ env.MANIFEST_VERSION }}.zip styles.css main.js manifest.json
 
-            - name: Create release
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              run: |
-                  tag="${GITHUB_REF#refs/tags/}"
-                  
-                  gh release create \
-                    --t "Release $tag" \
-                    --latest \
-                    --generate-notes
-                    main.js manifest.json styles.css release-${{ env.MANIFEST_VERSION }}.zip
+#            - name: Create release
+#              env:
+#                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#              run: |
+#                  tag="${GITHUB_REF#refs/tags/}"
+#
+#                  gh release create \
+#                    --t "Release $tag" \
+#                    --latest \
+#                    --generate-notes
+#                    main.js manifest.json styles.css release-${{ env.MANIFEST_VERSION }}.zip
+            - name: "Create Release"
+              uses: softprops/action-gh-release@v2
+              if: startsWith(github.ref, 'refs/tags/')
+              with:
+                files: |
+                    styles.css
+                    main.js
+                    manifest.json
+                    release-${{ env.MANIFEST_VERSION }}.zip
+                token: ${{ secrets.GITHUB_TOKEN }}
+                name: Release ${{ env.MANIFEST_VERSION }}
+                make_latest: true
