@@ -58,19 +58,8 @@ jobs:
               run: |
                   tag="${GITHUB_REF#refs/tags/}"
                   
-                  gh release create "Release $tag" \
-                    --title="$tag" \
-                    --draft \
+                  gh release create \
+                    --t "Release $tag" \
+                    --latest \
+                    --generate-notes
                     main.js manifest.json styles.css release-${{ env.MANIFEST_VERSION }}.zip
-#            - name: "Create Release"
-#              uses: softprops/action-gh-release@v2
-#              if: startsWith(github.ref, 'refs/tags/')
-#              with:
-#                files: |
-#                    styles.css
-#                    main.js
-#                    manifest.json
-#                    release-${{ env.MANIFEST_VERSION }}.zip
-#                token: ${{ secrets.TOKEN_241116 }}
-#                name: Release ${{ env.MANIFEST_VERSION }}
-#                make_latest: true
