@@ -3,166 +3,106 @@ import { TCompilerStep } from "./GardenPageCompiler";
 import { escapeRegExp } from "../utils/utils";
 import { DataviewApi, getAPI } from "obsidian-dataview";
 import { PublishFile } from "src/publishFile/PublishFile";
-import { errorNotice } from "../utils/NoticeUtils";
 
 export class DataviewCompiler {
-	constructor() {}
+	private dvApi: DataviewApi;
+
+	constructor() {
+		this.dvApi = getAPI();
+		if (!this.dvApi) {
+			console.error("Dataview API not found!");
+		}
+	}
 
 	compile: TCompilerStep = (file) => async (text) => {
 		let replacedText = text;
 		const dataViewRegex = /```dataview\s(.+?)```/gms;
-		const dvApi = getAPI();
 
-		if (!dvApi) return replacedText;
+		if (!this.dvApi) {
+			console.warn("Dataview API not available");
+			return replacedText;
+		}
+
 		const matches = text.matchAll(dataViewRegex);
-
-		const dataviewJsPrefix = dvApi.settings.dataviewJsKeyword;
-
+		const dataviewJsPrefix = "dataviewjs";
 		const dataViewJsRegex = new RegExp(
 			"```" + escapeRegExp(dataviewJsPrefix) + "\\s(.+?)```",
 			"gsm",
 		);
 		const dataviewJsMatches = text.matchAll(dataViewJsRegex);
 
-		const inlineQueryPrefix = dvApi.settings.inlineQueryPrefix;
-
-		const inlineDataViewRegex = new RegExp(
-			"`" + escapeRegExp(inlineQueryPrefix) + "(.+?)`",
-			"gsm",
-		);
-		const inlineMatches = text.matchAll(inlineDataViewRegex);
-
-		const inlineJsQueryPrefix = dvApi.settings.inlineJsQueryPrefix;
-
-		const inlineJsDataViewRegex = new RegExp(
-			"`" + escapeRegExp(inlineJsQueryPrefix) + "(.+?)`",
-			"gsm",
-		);
-		const inlineJsMatches = text.matchAll(inlineJsDataViewRegex);
-
-		if (
-			!matches &&
-			!inlineMatches &&
-			!dataviewJsMatches &&
-			!inlineJsMatches
-		) {
-			return text;
-		}
-
-		//Code block queries
-		for (const queryBlock of matches) {
-			try {
-				const block = queryBlock[0];
-				const query = queryBlock[1];
-
-				const { isInsideCallout, finalQuery } =
-					this.sanitizeQuery(query);
-
-				let markdown = await dvApi.tryQueryMarkdown(
-					finalQuery,
-					file.getPath(),
-				);
-
-				if (isInsideCallout) {
-					markdown = this.surroundWithCalloutBlock(markdown);
-				}
-
-				replacedText = replacedText.replace(block, `${markdown}`);
-			} catch (e) {
-				console.log(e);
-
-				errorNotice(
-					"Unable to render dataview query. Please update the dataview plugin to the latest version.",
-				);
-
-				return queryBlock[0];
-			}
-		}
-
 		for (const queryBlock of dataviewJsMatches) {
 			try {
 				const block = queryBlock[0];
 				const query = queryBlock[1];
+				
+				console.log("开始处理 dataviewjs 代码块");
 
-				const div = createEl("div");
-				const component = new Component();
-				component.load();
-				await dvApi.executeJs(query, div, component, file.getPath());
-				let counter = 0;
+				let result = await new Promise<string>(async (resolve) => {
+					const div = createEl("div");
+					const component = new Component();
+					component.load();
+					
+					// 获取原始的dataview API
+					const api = getAPI();
+					if (!api) {
+						console.error("Dataview API not found");
+						resolve("");
+						return;
+					}
 
-				while (!div.querySelector("[data-tag-name]") && counter < 100) {
-					await delay(5);
-					counter++;
-				}
-
-				replacedText = replacedText.replace(block, div.innerHTML ?? "");
-			} catch (e) {
-				console.log(e);
-
-				errorNotice(
-					"Unable to render dataviewjs query. Please update the dataview plugin to the latest version.",
-				);
-
-				return queryBlock[0];
-			}
-		}
-
-		//Inline queries
-		for (const inlineQuery of inlineMatches) {
-			try {
-				const code = inlineQuery[0];
-				const query = inlineQuery[1];
-
-				const dataviewResult = dvApi.tryEvaluate(query.trim(), {
-					this: dvApi.page(file.getPath()) ?? {},
+					// 创建代理对象，保持原有API的上下文和方法
+					const customDv = new Proxy(api, {
+						get(target, prop) {
+							// 重写输出相关方法
+							if (prop === 'table') {
+								return (headers: string[], rows: any[][]) => {
+									console.log("表格数据:", {headers, rows});
+									let table = `| ${headers.join(" | ")} |\n`;
+									table += `| ${headers.map(() => "---").join(" | ")} |\n`;
+									table += rows.map(row => 
+										`| ${row.map(cell => cell?.toString().trim() || "").join(" | ")} |`
+									).join("\n");
+									return table;
+								};
+							}
+							if (prop === 'paragraph') {
+								return (text: string) => text + "\n\n";
+							}
+							// 其他方法保持原样
+							return target[prop];
+						}
+					});
+					
+					try {
+						// 使用Function构造函数执行代码
+						const executor = new Function(
+							'dv', 
+							'component', 
+							'container', 
+							`try {
+								${query}
+							} catch(e) {
+								console.error("执行失败:", e);
+								return "";
+							}`
+						);
+						
+						const result = await executor.call({}, customDv, component, div);
+						console.log("执行结果:", result);
+						resolve(result || "");
+					} catch (e) {
+						console.error("执行失败:", e);
+						resolve("");
+					}
 				});
 
-				if (dataviewResult) {
-					replacedText = replacedText.replace(
-						code,
-						dataviewResult.toString() ?? "",
-					);
-				}
+				console.log("最终输出:", result);
+				replacedText = replacedText.replace(block, result);
+				
 			} catch (e) {
-				console.log(e);
-
-				errorNotice(
-					"Unable to render inline dataview query. Please update the dataview plugin to the latest version.",
-				);
-
-				return inlineQuery[0];
-			}
-		}
-
-		for (const inlineJsQuery of inlineJsMatches) {
-			try {
-				const code = inlineJsQuery[0];
-				const query = inlineJsQuery[1];
-
-				let result: string | undefined | null = "";
-
-				result = tryDVEvaluate(query, file, dvApi);
-
-				if (!result) {
-					result = tryEval(query);
-				}
-
-				if (!result) {
-					result = await tryExecuteJs(query, file, dvApi);
-				}
-
-				replacedText = replacedText.replace(
-					code,
-					result ?? "Unable to render query",
-				);
-			} catch (e) {
-				console.error(e);
-
-				errorNotice(
-					"Unable to render inline dataviewjs query. Please update the dataview plugin to the latest version.",
-				);
-
-				return inlineJsQuery[0];
+				console.error("Dataviewjs rendering error:", e);
+				return queryBlock[0];
 			}
 		}
 
