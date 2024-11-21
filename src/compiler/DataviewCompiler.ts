@@ -4,6 +4,22 @@ import { escapeRegExp } from "../utils/utils";
 import { DataviewApi, getAPI } from "obsidian-dataview";
 import { errorNotice } from "../utils/NoticeUtils";
 
+// 定义表格数据类型
+type TableCell =
+	| string
+	| number
+	| boolean
+	| null
+	| undefined
+	| {
+			path?: string;
+			display?: string;
+			toString: () => string;
+	  };
+
+type TableRow = TableCell[];
+type TableData = TableRow[];
+
 export class DataviewCompiler {
 	private dvApi: DataviewApi;
 
@@ -121,17 +137,39 @@ export class DataviewCompiler {
 						get(target, prop) {
 							// 重写输出相关方法
 							if (prop === "table") {
-								return (headers: string[], rows: any[][]) => {
+								return (headers: string[], rows: TableData) => {
+									console.log("表格数据:", { headers, rows });
 									let table = `| ${headers.join(" | ")} |\n`;
 									table += `| ${headers.map(() => "---").join(" | ")} |\n`;
 
 									table += rows
 										.map(
 											(row) =>
-												`| ${row.map((cell) => cell?.toString().trim() || "").join(" | ")} |`,
+												`| ${row
+													.map((cell) => {
+														if (
+															cell === null ||
+															cell === undefined
+														)
+															return "";
+
+														// 处理链接对象
+														if (
+															typeof cell ===
+																"object" &&
+															"path" in cell
+														) {
+															return `[[${cell.path}|${cell.display || cell.path}]]`;
+														}
+
+														return cell
+															.toString()
+															.trim();
+													})
+													.join(" | ")} |`,
 										)
 										.join("\n");
-									tableResult = table; // 保存表格结果
+									tableResult = table;
 
 									return table;
 								};
