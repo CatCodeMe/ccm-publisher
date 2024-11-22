@@ -27,6 +27,7 @@ const DEFAULT_SETTINGS: DigitalGardenSettings = {
 	branchName: "main",
 	publishKey: "dg-publish",
 	pathKey: "dg-path",
+	refImgKey: ["banner"],
 };
 
 export default class DigitalGarden extends Plugin {

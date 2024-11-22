@@ -13,4 +13,5 @@ export default interface DigitalGardenSettings {
 
 	publishKey: string;
 	pathKey: string;
+	refImgKey: string[];
 }

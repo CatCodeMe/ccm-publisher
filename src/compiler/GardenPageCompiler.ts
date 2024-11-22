@@ -392,6 +392,41 @@ export class GardenPageCompiler {
 			}
 		}
 
+		//处理frontmatter中的图片引用，一起上传
+		for (let i = 0; i < this.settings.refImgKey.length; i++) {
+			const k = this.settings.refImgKey[i];
+			//目前支持  //![[image.png]] , [[image.png]] 两种风格
+			const imgRef = file.meta.frontmatter[k];
+
+			if (!imgRef) {
+				continue;
+			}
+			const match = imgRef.match(transcludedImageRegex);
+
+			if (match) {
+				try {
+					const [imageName, _] = imgRef
+						.substring(imgRef.indexOf("[") + 2, imgRef.indexOf("]"))
+						.split("|");
+					const imagePath = getLinkpath(imageName);
+
+					const linkedFile = this.metadataCache.getFirstLinkpathDest(
+						imagePath,
+						file.getPath(),
+					);
+
+					if (linkedFile) {
+						assets.push(linkedFile.path);
+					}
+				} catch (e) {
+					console.error(
+						`extractImageLinks in frontmatter, transcludedImageMatches error:${imgRef}`,
+						e,
+					);
+				}
+			}
+		}
+
 		return assets;
 	};
 
@@ -405,7 +440,7 @@ export class GardenPageCompiler {
 
 			//![[image.png]]
 			const transcludedImageRegex =
-				/!\[\[(.*?)(\.(png|jpg|jpeg|gif|webp))\|(.*?)\]\]|!\[\[(.*?)(\.(png|jpg|jpeg|gif|webp))\]\]/g;
+				/!\[\[(.*?)(\.(png|jpg|jpeg|gif|webp))\|(.*?)\]\]|!?\[\[(.*?)(\.(png|jpg|jpeg|gif|webp))\]\]/g;
 			const transcludedImageMatches = text.match(transcludedImageRegex);
 
 			if (transcludedImageMatches) {
@@ -571,6 +606,60 @@ export class GardenPageCompiler {
 					}
 				}
 			}
+
+			//处理frontmatter中的图片引用，一起上传
+			for (let i = 0; i < this.settings.refImgKey.length; i++) {
+				const k = this.settings.refImgKey[i];
+				//目前支持  //![[image.png]] , [[image.png]] 两种风格
+				const imgRef = file.meta.frontmatter[k];
+
+				if (!imgRef) {
+					continue;
+				}
+				const match = imgRef.match(transcludedImageRegex);
+
+				console.log(imgRef, match);
+
+				if (match) {
+					try {
+						const [imageName, _] = imgRef
+							.substring(
+								imgRef.indexOf("[") + 2,
+								imgRef.indexOf("]"),
+							)
+							.split("|");
+						const imagePath = getLinkpath(imageName);
+
+						const linkedFile =
+							this.metadataCache.getFirstLinkpathDest(
+								imagePath,
+								file.getPath(),
+							);
+
+						console.log(linkedFile);
+
+						if (linkedFile) {
+							const remoteImgPath = `${this.getImgBaseDir()}${linkedFile.path}`;
+
+							const imgInfo =
+								await this.buildLocalImgInfo(linkedFile);
+
+							assets.push({
+								remotePath: remoteImgPath,
+								content: imgInfo.content,
+								localHash: imgInfo.localHash,
+								localPath: linkedFile.path,
+							});
+						}
+					} catch (e) {
+						console.error(
+							`extractImageLinks in frontmatter, transcludedImageMatches error:${imgRef}`,
+							e,
+						);
+					}
+				}
+			}
+			console.log(assets);
 
 			return [imageText, assets];
 		};
