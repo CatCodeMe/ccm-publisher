@@ -203,14 +203,6 @@ export class GardenPageCompiler {
 							remotePath.lastIndexOf("."),
 						);
 
-						// 如果原始链接包含 .md，也需要从 linkedFileName 中去掉
-						const displayFileName = linkedFileName.endsWith(".md")
-							? linkedFileName.substring(
-									0,
-									linkedFileName.lastIndexOf("."),
-								)
-							: linkedFileName;
-
 						if (!linkDisplayName) {
 							convertedText = convertedText.replace(
 								linkMatch,
