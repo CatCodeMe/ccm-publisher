@@ -1,8 +1,8 @@
 {
 	"id": "CCM Publisher",
 	"name": "CCM Publisher",
-	"version": "0.2.3",
-	"minAppVersion": "1.5.8",
+	"version": "0.2.4",
+	"minAppVersion": "1.7.2",
 	"description": "Publish your notes to github",
 	"author": "CatCodeMe",
 	"authorUrl": "https://8cat.life",

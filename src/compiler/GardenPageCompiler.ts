@@ -197,10 +197,19 @@ export class GardenPageCompiler {
 							.getFileMetadataManager()
 							.getCustomRemotePath();
 
+						// 总是去掉 .md 扩展名
 						const replacePath = remotePath.substring(
 							0,
-							linkedFile.path.lastIndexOf("."),
+							remotePath.lastIndexOf("."),
 						);
+
+						// 如果原始链接包含 .md，也需要从 linkedFileName 中去掉
+						const displayFileName = linkedFileName.endsWith(".md")
+							? linkedFileName.substring(
+									0,
+									linkedFileName.lastIndexOf("."),
+								)
+							: linkedFileName;
 
 						if (!linkDisplayName) {
 							convertedText = convertedText.replace(
@@ -283,6 +292,7 @@ export class GardenPageCompiler {
 						.split("|");
 					const pathStart = svg.lastIndexOf("(") + 1;
 					const pathEnd = svg.lastIndexOf(")");
+
 					const imagePath = svg.substring(pathStart, pathEnd);
 
 					if (imagePath.startsWith("http")) {
@@ -365,6 +375,7 @@ export class GardenPageCompiler {
 
 					const pathStart = imageMatch.lastIndexOf("(") + 1;
 					const pathEnd = imageMatch.lastIndexOf(")");
+
 					const imagePath = imageMatch.substring(pathStart, pathEnd);
 
 					if (imagePath.startsWith("http")) {
