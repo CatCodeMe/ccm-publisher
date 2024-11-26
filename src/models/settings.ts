@@ -1,4 +1,9 @@
 /** Saved to data.json, changing requires a migration */
+export interface PathMapping {
+	local: string;
+	remote: string;
+}
+
 export default interface DigitalGardenSettings {
 	githubToken: string;
 	githubRepo: string;
@@ -14,4 +19,6 @@ export default interface DigitalGardenSettings {
 	publishKey: string;
 	pathKey: string;
 	refImgKey: string[];
+
+	pathMappings: PathMapping[];
 }

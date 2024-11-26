@@ -1,5 +1,6 @@
 import { FrontMatterCache, TFile } from "obsidian";
 import DigitalGardenSettings from "../models/settings";
+import { PathMappingService } from "../services/PathMappingService";
 
 // This should soon contain all the magic keys instead of them being hardcoded (with documentation)
 export enum FRONTMATTER_KEYS {
@@ -12,6 +13,7 @@ export class FileMetadataManager {
 	file: TFile;
 	frontmatter: FrontMatterCache;
 	settings: DigitalGardenSettings;
+	private pathMappingService: PathMappingService;
 
 	constructor(
 		file: TFile,
@@ -21,6 +23,7 @@ export class FileMetadataManager {
 		this.file = file;
 		this.frontmatter = frontmatter;
 		this.settings = settings;
+		this.pathMappingService = new PathMappingService(settings);
 	}
 
 	getCustomRemotePath(): string {
@@ -29,8 +32,18 @@ export class FileMetadataManager {
 				this.settings.pathKey || FRONTMATTER_KEYS.CUSTOM_PATH
 			];
 
+		let sourcePath: string;
+		let transformedPath: string;
+
 		if (!customDir) {
-			return this.file.path;
+			sourcePath = this.file.path;
+			transformedPath = this.pathMappingService.transformPath(sourcePath);
+
+			console.log(
+				`Path transformation: ${sourcePath} -> ${transformedPath}`,
+			);
+
+			return transformedPath;
 		}
 
 		if (customDir === "/") {
@@ -54,6 +67,9 @@ export class FileMetadataManager {
 		}
 
 		//e.g.  path1/path2/name.md
-		return customDir + this.file.name;
+		sourcePath = customDir + this.file.name;
+		transformedPath = this.pathMappingService.transformPath(sourcePath);
+
+		return transformedPath;
 	}
 }

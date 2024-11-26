@@ -2,6 +2,7 @@ import { debounce, Setting } from "obsidian";
 import SettingView from "./SettingView";
 import { DG_PATH_VALUE_REGEX } from "../../utils/regexes";
 import { errorNotice } from "../../utils/NoticeUtils";
+import { PathMappingSettings } from "./PathMappingSettings";
 
 export class NoteSettings {
 	settings: SettingView;
@@ -18,6 +19,12 @@ export class NoteSettings {
 		this.initialImgBaseDir();
 		this.initialPublishKey();
 		this.initialPathKey();
+
+		// Add path mapping settings
+		const pathMappingContainer = this.settingsRootElement.createEl("div", {
+			cls: "path-mapping-settings",
+		});
+		new PathMappingSettings(this.settings, pathMappingContainer);
 	}
 
 	initializeHeader = () => {
@@ -70,7 +77,7 @@ export class NoteSettings {
 							)
 						) {
 							this.settings.settings.notesBaseDir = value.trim();
-							this.settings.saveSettings();
+							await this.settings.saveSettings();
 						}
 					}),
 			);
@@ -100,7 +107,7 @@ export class NoteSettings {
 							)
 						) {
 							this.settings.settings.imgBaseDir = value.trim();
-							this.settings.saveSettings();
+							await this.settings.saveSettings();
 						}
 					}),
 			);
@@ -118,7 +125,7 @@ export class NoteSettings {
 					.setValue(this.settings.settings.publishKey)
 					.onChange(async (value) => {
 						this.settings.settings.publishKey = value.trim();
-						this.settings.saveSettings();
+						await this.settings.saveSettings();
 					}),
 			);
 	}
@@ -135,7 +142,7 @@ export class NoteSettings {
 					.setValue(this.settings.settings.pathKey)
 					.onChange(async (value) => {
 						this.settings.settings.publishKey = value.trim();
-						this.settings.saveSettings();
+						await this.settings.saveSettings();
 					}),
 			);
 	}
