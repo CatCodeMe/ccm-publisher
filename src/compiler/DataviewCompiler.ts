@@ -1,27 +1,34 @@
 import { Component } from "obsidian";
 import { TCompilerStep } from "./GardenPageCompiler";
 import { escapeRegExp } from "../utils/utils";
-import { DataviewApi, getAPI } from "obsidian-dataview";
+import { DataviewApi, getAPI, Link } from "obsidian-dataview";
 import { errorNotice } from "../utils/NoticeUtils";
+import { PublishFile } from "../publishFile/PublishFile";
 
-// 定义表格数据类型
-type TableCell =
+// 定义类型
+interface DataviewCell {
+	path?: string;
+	display?: string;
+	toString(): string;
+}
+
+type DataviewValue =
 	| string
 	| number
 	| boolean
-	| null
-	| undefined
-	| {
-			path?: string;
-			display?: string;
-			toString: () => string;
-	  };
+	| Date
+	| Link
+	| DataviewCell
+	| null;
 
-type TableRow = TableCell[];
-type TableData = TableRow[];
+interface DataviewProxy extends DataviewApi {
+	formatTableMarkdown(headers: string[], rows: DataviewValue[][]): string;
+	formatCell(cell: DataviewValue): string;
+	formatListMarkdown(items: DataviewValue[]): string;
+}
 
 export class DataviewCompiler {
-	private dvApi: DataviewApi;
+	private readonly dvApi: DataviewApi;
 
 	constructor() {
 		this.dvApi = getAPI();
@@ -31,60 +38,48 @@ export class DataviewCompiler {
 		}
 	}
 
-	compile: TCompilerStep = (file) => async (text) => {
-		let replacedText = text;
-		const dataViewRegex = /```dataview\s(.+?)```/gms;
+	compile: TCompilerStep =
+		(publishFile: PublishFile) => async (text: string) => {
+			if (!this.dvApi) {
+				console.warn("Dataview API not available");
 
-		if (!this.dvApi) {
-			console.warn("Dataview API not available");
+				return text;
+			}
+
+			let replacedText = text;
+
+			// 处理 dataview 代码块
+			replacedText = await this.processDataviewBlocks(
+				replacedText,
+				publishFile,
+			);
+
+			// 处理 dataviewjs 代码块
+			replacedText = await this.processDataviewJsBlocks(
+				replacedText,
+				publishFile,
+			);
 
 			return replacedText;
-		}
+		};
+
+	private async processDataviewBlocks(
+		text: string,
+		file: PublishFile,
+	): Promise<string> {
+		const dataViewRegex = /```dataview\s(.+?)```/gms;
+		let replacedText = text;
 
 		const matches = text.matchAll(dataViewRegex);
 
-		const dataviewJsPrefix = this.dvApi.settings.dataviewJsKeyword;
-
-		const dataViewJsRegex = new RegExp(
-			"```" + escapeRegExp(dataviewJsPrefix) + "\\s(.+?)```",
-			"gsm",
-		);
-		const dataviewJsMatches = text.matchAll(dataViewJsRegex);
-
-		const inlineQueryPrefix = this.dvApi.settings.inlineQueryPrefix;
-
-		const inlineDataViewRegex = new RegExp(
-			"`" + escapeRegExp(inlineQueryPrefix) + "(.+?)`",
-			"gsm",
-		);
-		const inlineMatches = text.matchAll(inlineDataViewRegex);
-
-		const inlineJsQueryPrefix = this.dvApi.settings.inlineJsQueryPrefix;
-
-		const inlineJsDataViewRegex = new RegExp(
-			"`" + escapeRegExp(inlineJsQueryPrefix) + "(.+?)`",
-			"gsm",
-		);
-		const inlineJsMatches = text.matchAll(inlineJsDataViewRegex);
-
-		if (
-			!matches &&
-			!inlineMatches &&
-			!dataviewJsMatches &&
-			!inlineJsMatches
-		) {
-			return text;
-		}
-
-		//Code block queries
-		for (const queryBlock of matches) {
+		for (const match of matches) {
 			try {
-				const block = queryBlock[0];
-				const query = queryBlock[1];
+				const [block, query] = match;
 
 				const { isInsideCallout, finalQuery } =
 					this.sanitizeQuery(query);
 
+				// 使用 tryQueryMarkdown 直接获取 markdown 格式结果
 				let markdown = await this.dvApi.tryQueryMarkdown(
 					finalQuery,
 					file.getPath(),
@@ -94,128 +89,219 @@ export class DataviewCompiler {
 					markdown = this.surroundWithCalloutBlock(markdown);
 				}
 
-				replacedText = replacedText.replace(block, `${markdown}`);
+				replacedText = replacedText.replace(block, markdown);
 			} catch (e) {
-				console.log(e);
+				console.error("Dataview query error:", e);
 
 				errorNotice(
-					"Unable to render dataview query. Please update the dataview plugin to the latest version.",
+					"Unable to render dataview query. Please update the dataview plugin.",
 				);
-
-				return queryBlock[0];
-			}
-		}
-
-		for (const queryBlock of dataviewJsMatches) {
-			try {
-				const block = queryBlock[0];
-				const query = queryBlock[1];
-
-				console.log("开始处理 dataviewjs 代码块");
-
-				// eslint-disable-next-line no-async-promise-executor
-				const result = await new Promise<string>(async (resolve) => {
-					const div = createEl("div");
-					const component = new Component();
-					component.load();
-
-					// 获取原始的dataview API
-					const api = getAPI();
-
-					if (!api) {
-						console.error("Dataview API not found");
-						resolve("");
-
-						return;
-					}
-
-					let tableResult = ""; // 存储表格结果
-					let paragraphResult = ""; // 存储段落结果
-
-					// 创建代理对象，保持原有API的上下文和方法
-					const customDv = new Proxy(api, {
-						get(target, prop) {
-							// 重写输出相关方法
-							if (prop === "table") {
-								return (headers: string[], rows: TableData) => {
-									console.log("表格数据:", { headers, rows });
-									let table = `| ${headers.join(" | ")} |\n`;
-									table += `| ${headers.map(() => "---").join(" | ")} |\n`;
-
-									table += rows
-										.map(
-											(row) =>
-												`| ${row
-													.map((cell) => {
-														if (
-															cell === null ||
-															cell === undefined
-														)
-															return "";
-
-														// 处理链接对象
-														if (
-															typeof cell ===
-																"object" &&
-															"path" in cell
-														) {
-															return `[[${cell.path}|${cell.display || cell.path}]]`;
-														}
-
-														return cell
-															.toString()
-															.trim();
-													})
-													.join(" | ")} |`,
-										)
-										.join("\n");
-									tableResult = table;
-
-									return table;
-								};
-							}
-
-							if (prop === "paragraph") {
-								return (text: string) => {
-									paragraphResult = text + "\n\n"; // 保存段落结果
-
-									return text;
-								};
-							}
-
-							// 其他方法保持原样
-							return target[prop];
-						},
-					});
-
-					try {
-						// 执行代码
-						await Function(
-							"dv",
-							"component",
-							"container",
-							`${query}`,
-						).call({}, customDv, component, div);
-
-						// 返回段落和表格的组合结果
-						resolve(paragraphResult + tableResult);
-					} catch (e) {
-						console.error("执行失败:", e);
-						resolve("");
-					}
-				});
-
-				console.log("最终输出:", result);
-				replacedText = replacedText.replace(block, result);
-			} catch (e) {
-				console.error("Dataviewjs rendering error:", e);
-
-				return queryBlock[0];
 			}
 		}
 
 		return replacedText;
-	};
+	}
+
+	private async processDataviewJsBlocks(
+		text: string,
+		file: PublishFile,
+	): Promise<string> {
+		const dataviewJsPrefix =
+			this.dvApi.settings.dataviewJsKeyword || "dataviewjs";
+
+		const dataViewJsRegex = new RegExp(
+			`\`\`\`${escapeRegExp(dataviewJsPrefix)}\\s(.+?)\`\`\``,
+			"gms",
+		);
+		let replacedText = text;
+
+		const matches = text.matchAll(dataViewJsRegex);
+
+		for (const match of matches) {
+			try {
+				const [block, query] = match;
+
+				const { isInsideCallout, finalQuery } =
+					this.sanitizeQuery(query);
+				let result = await this.executeDataviewJs(finalQuery, file);
+
+				if (isInsideCallout) {
+					result = this.surroundWithCalloutBlock(result);
+				}
+
+				replacedText = replacedText.replace(block, result);
+			} catch (e) {
+				console.error("DataviewJS execution error:", e);
+			}
+		}
+
+		return replacedText;
+	}
+
+	private async executeDataviewJs(
+		query: string,
+		file: PublishFile,
+	): Promise<string> {
+		// eslint-disable-next-line no-async-promise-executor
+		return new Promise<string>(async (resolve) => {
+			const div = createEl("div");
+			const component = new Component();
+			component.load();
+
+			const api = getAPI();
+
+			if (!api) {
+				console.error("Dataview API not found");
+				resolve("");
+
+				return;
+			}
+
+			let output = "";
+
+			// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+			const customDv = new Proxy(api, {
+				get(target: DataviewApi, prop: string | symbol) {
+					if (prop === "current") {
+						return () => file;
+					}
+
+					if (prop === "page") {
+						return (path: string) => target.page(path);
+					}
+
+					if (prop === "pages") {
+						return (source?: string) => target.pages(source);
+					}
+
+					if (prop === "table") {
+						return (headers: string[], rows: DataviewValue[][]) => {
+							output += (
+								this as unknown as DataviewProxy
+							).formatTableMarkdown(headers, rows);
+
+							return output;
+						};
+					}
+
+					if (prop === "paragraph") {
+						return (text: string) => {
+							output += text + "\n\n";
+
+							return text;
+						};
+					}
+
+					if (prop === "list") {
+						return (items: DataviewValue[]) => {
+							output += (
+								this as unknown as DataviewProxy
+							).formatListMarkdown(items);
+
+							return output;
+						};
+					}
+
+					if (prop === "header") {
+						return (text: string, level: number = 1) => {
+							output += "#".repeat(level) + " " + text + "\n\n";
+
+							return output;
+						};
+					}
+
+					if (prop === "span") {
+						return (text: string) => {
+							output += text;
+
+							return output;
+						};
+					}
+
+					return target[prop as keyof DataviewApi];
+				},
+
+				// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+				//@ts-expect-error
+				formatTableMarkdown(
+					headers: string[],
+					rows: DataviewValue[][],
+				): string {
+					let table = `| ${headers.join(" | ")} |\n`;
+					table += `| ${headers.map(() => "---").join(" | ")} |\n`;
+
+					table += rows
+						.map(
+							(row) =>
+								`| ${row.map((cell) => (this as unknown as DataviewProxy).formatCell(cell)).join(" | ")} |`,
+						)
+						.join("\n");
+
+					return table + "\n\n";
+				},
+
+				formatCell(cell: DataviewValue): string {
+					if (cell == null) return "";
+
+					if (typeof cell === "object") {
+						if ("path" in cell && typeof cell.path === "string") {
+							const display =
+								"display" in cell ? cell.display : cell.path;
+
+							if (display == undefined) {
+								return `[[${cell.path}]]`;
+							}
+
+							return `[[${cell.path}|${display}]]`;
+						}
+
+						return cell.toString().trim();
+					}
+
+					return String(cell).trim();
+				},
+
+				formatListMarkdown(items: DataviewValue[]): string {
+					return (
+						items
+							.map(
+								(item) =>
+									`- ${(this as unknown as DataviewProxy).formatCell(item)}`,
+							)
+							.join("\n") + "\n\n"
+					);
+				},
+			}) as DataviewProxy;
+
+			try {
+				const context = {
+					dv: customDv,
+					luxon: window.luxon,
+					moment: window.moment,
+					current: file,
+				};
+
+				const wrappedQuery = `
+					with (this) {
+						${query}
+					}
+				`;
+
+				await Function(
+					"dv",
+					"component",
+					"container",
+					wrappedQuery,
+				).call(context, customDv, component, div);
+				resolve(output);
+			} catch (e) {
+				console.error("DataviewJS execution failed:", e);
+				resolve("");
+			} finally {
+				component.unload();
+			}
+		});
+	}
 
 	/**
 	 * Splits input in lines.
@@ -224,9 +310,14 @@ export class DataviewCompiler {
 	 *
 	 */
 	surroundWithCalloutBlock(input: string): string {
-		const tmp = input.split("\n");
+		if (!input.trim()) return "";
 
-		return " " + tmp.join("\n> ");
+		// 处理多行内容，确保每行都有正确的前缀
+		const lines = input.split("\n");
+
+		return lines
+			.map((line) => (line.trim() ? `> ${line}` : ">"))
+			.join("\n");
 	}
 
 	/**
@@ -242,22 +333,23 @@ export class DataviewCompiler {
 	} {
 		let isInsideCallout = false;
 		const parts = query.split("\n");
-		const sanitized = [];
+		const sanitized: string[] = [];
 
 		for (const part of parts) {
-			if (part.startsWith(">")) {
+			const trimmedPart = part.trimStart();
+
+			if (trimmedPart.startsWith(">")) {
 				isInsideCallout = true;
-				sanitized.push(part.substring(1).trim());
+				// 移除所有的 > 符号和前导空格
+				sanitized.push(trimmedPart.replace(/^>+\s*/, ""));
 			} else {
 				sanitized.push(part);
 			}
 		}
-		let finalQuery = query;
 
-		if (isInsideCallout) {
-			finalQuery = sanitized.join("\n");
-		}
-
-		return { isInsideCallout, finalQuery };
+		return {
+			isInsideCallout,
+			finalQuery: sanitized.join("\n"),
+		};
 	}
 }

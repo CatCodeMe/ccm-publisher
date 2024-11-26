@@ -621,8 +621,6 @@ export class GardenPageCompiler {
 				}
 				const match = imgRef.match(transcludedImageRegex);
 
-				console.log(imgRef, match);
-
 				if (match) {
 					try {
 						const [imageName, _] = imgRef
@@ -638,8 +636,6 @@ export class GardenPageCompiler {
 								imagePath,
 								file.getPath(),
 							);
-
-						console.log(linkedFile);
 
 						if (linkedFile) {
 							const remoteImgPath = `${this.getImgBaseDir()}${linkedFile.path}`;
@@ -662,7 +658,6 @@ export class GardenPageCompiler {
 					}
 				}
 			}
-			console.log(assets);
 
 			return [imageText, assets];
 		};
